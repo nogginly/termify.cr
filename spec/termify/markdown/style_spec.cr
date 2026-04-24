@@ -1,0 +1,200 @@
+require "../../spec_helper"
+
+Spectator.describe Termify::Markdown::Style do
+  # ── construction ────────────────────────────────────────────────────────────
+
+  describe "initialization" do
+    it "defaults all Bool flags to false" do
+      s = Termify::Markdown::Style.new
+      expect(s.bold).to be_false
+      expect(s.italic).to be_false
+      expect(s.dim).to be_false
+      expect(s.underline).to be_false
+      expect(s.strikethrough).to be_false
+    end
+
+    it "defaults all optional fields to nil" do
+      s = Termify::Markdown::Style.new
+      expect(s.fg).to be_nil
+      expect(s.bg).to be_nil
+      expect(s.prefix).to be_nil
+      expect(s.suffix).to be_nil
+    end
+
+    it "accepts named arguments selectively" do
+      s = Termify::Markdown::Style.new(bold: true, fg: Termify::ANSI::FG_RED)
+      expect(s.bold).to be_true
+      expect(s.italic).to be_false
+      expect(s.fg).to eq(Termify::ANSI::FG_RED)
+      expect(s.bg).to be_nil
+    end
+  end
+
+  # ── NONE constant ───────────────────────────────────────────────────────────
+
+  describe "NONE" do
+    it "is a Style with no attributes set" do
+      expect(Termify::Markdown::Style::NONE.bold).to be_false
+      expect(Termify::Markdown::Style::NONE.fg).to be_nil
+    end
+
+    it "produces an empty ANSI string" do
+      expect(Termify::Markdown::Style::NONE.to_ansi).to eq("")
+    end
+  end
+
+  # ── #to_ansi ─────────────────────────────────────────────────────────────
+
+  describe "#to_ansi" do
+    it "returns empty string when no attributes are set" do
+      expect(Termify::Markdown::Style.new.to_ansi).to eq("")
+    end
+
+    it "emits BOLD for bold: true" do
+      s = Termify::Markdown::Style.new(bold: true)
+      expect(s.to_ansi).to eq(Termify::ANSI::BOLD)
+    end
+
+    it "emits ITALIC for italic: true" do
+      s = Termify::Markdown::Style.new(italic: true)
+      expect(s.to_ansi).to eq(Termify::ANSI::ITALIC)
+    end
+
+    it "emits DIM for dim: true" do
+      s = Termify::Markdown::Style.new(dim: true)
+      expect(s.to_ansi).to eq(Termify::ANSI::DIM)
+    end
+
+    it "emits UNDERLINE for underline: true" do
+      s = Termify::Markdown::Style.new(underline: true)
+      expect(s.to_ansi).to eq(Termify::ANSI::UNDERLINE)
+    end
+
+    it "emits STRIKETHROUGH for strikethrough: true" do
+      s = Termify::Markdown::Style.new(strikethrough: true)
+      expect(s.to_ansi).to eq(Termify::ANSI::STRIKETHROUGH)
+    end
+
+    it "emits the fg sequence when fg is set" do
+      s = Termify::Markdown::Style.new(fg: Termify::ANSI::FG_CYAN)
+      expect(s.to_ansi).to eq(Termify::ANSI::FG_CYAN)
+    end
+
+    it "emits the bg sequence when bg is set" do
+      s = Termify::Markdown::Style.new(bg: Termify::ANSI::BG_BLUE)
+      expect(s.to_ansi).to eq(Termify::ANSI::BG_BLUE)
+    end
+
+    it "emits SGR flags before fg before bg (canonical order)" do
+      s = Termify::Markdown::Style.new(
+        bold: true,
+        italic: true,
+        fg: Termify::ANSI::FG_YELLOW,
+        bg: Termify::ANSI::BG_BLACK
+      )
+      expect(s.to_ansi).to eq(
+        Termify::ANSI::BOLD +
+        Termify::ANSI::ITALIC +
+        Termify::ANSI::FG_YELLOW +
+        Termify::ANSI::BG_BLACK
+      )
+    end
+
+    it "works with 256-color fg sequences" do
+      s = Termify::Markdown::Style.new(fg: Termify::ANSI.fg256(202))
+      expect(s.to_ansi).to eq("\e[38;5;202m")
+    end
+
+    it "does not include prefix or suffix in ANSI output" do
+      s = Termify::Markdown::Style.new(bold: true, prefix: "# ", suffix: " #")
+      expect(s.to_ansi).to eq(Termify::ANSI::BOLD)
+    end
+  end
+
+  # ── #empty? ──────────────────────────────────────────────────────────────
+
+  describe "#empty?" do
+    it "returns true for a default Style" do
+      expect(Termify::Markdown::Style.new.empty?).to be_true
+    end
+
+    it "returns true when only prefix/suffix are set" do
+      s = Termify::Markdown::Style.new(prefix: "> ", suffix: ".")
+      expect(s.empty?).to be_true
+    end
+
+    it "returns false when bold is set" do
+      expect(Termify::Markdown::Style.new(bold: true).empty?).to be_false
+    end
+
+    it "returns false when fg is set" do
+      expect(Termify::Markdown::Style.new(fg: Termify::ANSI::FG_GREEN).empty?).to be_false
+    end
+
+    it "returns false when bg is set" do
+      expect(Termify::Markdown::Style.new(bg: Termify::ANSI::BG_RED).empty?).to be_false
+    end
+  end
+
+  # ── #merge ───────────────────────────────────────────────────────────────
+
+  describe "#merge" do
+    it "returns a new Style (does not mutate self)" do
+      base = Termify::Markdown::Style.new(bold: true)
+      other = Termify::Markdown::Style.new(italic: true)
+      merged = base.merge(other)
+      expect(base.italic).to be_false # struct copy — self is never mutated
+    end
+
+    it "OR-merges Bool flags — both base and override contribute" do
+      base = Termify::Markdown::Style.new(bold: true)
+      other = Termify::Markdown::Style.new(italic: true)
+      merged = base.merge(other)
+      expect(merged.bold).to be_true
+      expect(merged.italic).to be_true
+    end
+
+    it "override fg wins over base fg" do
+      base = Termify::Markdown::Style.new(fg: Termify::ANSI::FG_RED)
+      other = Termify::Markdown::Style.new(fg: Termify::ANSI::FG_BLUE)
+      expect(base.merge(other).fg).to eq(Termify::ANSI::FG_BLUE)
+    end
+
+    it "base fg is kept when override fg is nil" do
+      base = Termify::Markdown::Style.new(fg: Termify::ANSI::FG_GREEN)
+      other = Termify::Markdown::Style.new
+      expect(base.merge(other).fg).to eq(Termify::ANSI::FG_GREEN)
+    end
+
+    it "override bg wins over base bg" do
+      base = Termify::Markdown::Style.new(bg: Termify::ANSI::BG_BLACK)
+      other = Termify::Markdown::Style.new(bg: Termify::ANSI::BG_WHITE)
+      expect(base.merge(other).bg).to eq(Termify::ANSI::BG_WHITE)
+    end
+
+    it "override prefix wins over base prefix" do
+      base = Termify::Markdown::Style.new(prefix: "## ")
+      other = Termify::Markdown::Style.new(prefix: "### ")
+      expect(base.merge(other).prefix).to eq("### ")
+    end
+
+    it "base prefix is kept when override prefix is nil" do
+      base = Termify::Markdown::Style.new(prefix: "> ")
+      other = Termify::Markdown::Style.new(bold: true)
+      expect(base.merge(other).prefix).to eq("> ")
+    end
+
+    it "merging with NONE returns a style equal in value to self" do
+      base = Termify::Markdown::Style.new(bold: true, fg: Termify::ANSI::FG_CYAN)
+      merged = base.merge(Termify::Markdown::Style::NONE)
+      expect(merged.bold).to eq(base.bold)
+      expect(merged.fg).to eq(base.fg)
+    end
+
+    it "bold stays true when both sides are bold" do
+      base = Termify::Markdown::Style.new(bold: true)
+      other = Termify::Markdown::Style.new(bold: true)
+      expect(base.merge(other).bold).to be_true
+    end
+  end
+end
