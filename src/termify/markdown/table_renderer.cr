@@ -29,7 +29,7 @@ module Termify
         align.try(&.to_tallboy) || Tallboy::Alignment::Center
       end
 
-      def self.render(rows : Array(Array(String)), alignnments : Array(ColumnAlignment), io : IO) : Nil
+      def self.render(rows : Array(Array(String)), alignments : Array(ColumnAlignment), io : IO) : Nil
         return if rows.empty?
 
         max_cols = rows.max_of(&.size)
@@ -40,7 +40,7 @@ module Termify
           header do
             header_cells.each_with_index do |label, i|
               # cell label, align: :left
-              cell label, align: convert(alignnments[i]?)
+              cell label, align: convert(alignments[i]?)
             end
             (max_cols - header_cells.size).times do
               cell ""
