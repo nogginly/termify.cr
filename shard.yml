@@ -9,3 +9,7 @@ development_dependencies:
     github: crystal-ameba/ameba
   spectator:
     gitlab: arctic-fox/spectator
+
+dependencies:
+  tallboy:
+    github: epoch/tallboy

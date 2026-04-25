@@ -7,7 +7,7 @@ Spectator.describe Termify::Markdown::Stylesheet do
     it "defines all expected members" do
       expected = %w[h1 h2 h3 h4 h5 h6 paragraph blockquote codeblock
         codeinline bold italic strikethrough link listitem
-        horizontalrule htmltag blockhtml]
+        horizontalrule htmltag blockhtml table]
       expect(Termify::Markdown::Element.names.map(&.downcase)).to eq(expected)
     end
   end

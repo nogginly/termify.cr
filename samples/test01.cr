@@ -95,18 +95,18 @@ console.log(foo(5))
 
 ### Tables
 
-| Heading1 | Heading2                   |
-| -------- | -------------------------- |
-| row1     | Lorem ipsum dolor sit amet |
-| row2     | Lorem ipsum dolor sit amet |
-| row3     | Lorem ipsum dolor sit amet |
+| Heading1 | Heading2                   | Heading 3
+| -------- | -------------------------- |-------------
+| row1     | | Lorem ipsum dolor sit amet |
+| row2     | Lorem ipsum _dolor_ sit amet |
+| row3     | Lorem ipsum **dolor** sit amet |
 
 Right aligned columns
 
 | Heading1 |                   Heading2 |
 | -------: | -------------------------: |
 |     row1 | Lorem ipsum dolor sit amet |
-|     row2 | Lorem ipsum dolor sit amet |
+|     row2 | Lorem ipsum `dolor` sit amet |
 |     row3 | Lorem ipsum dolor sit amet |
 
 ### HTML
@@ -139,6 +139,7 @@ ss = Termify::Markdown::Stylesheet.new({
   Termify::Markdown::Element::CodeBlock      => Termify::Markdown::Style.new(fg: Termify::ANSI::FG_BRIGHT_WHITE, bg: Termify::ANSI::BG_BRIGHT_BLACK),
   Termify::Markdown::Element::HorizontalRule => Termify::Markdown::Style.new(dim: true),
   Termify::Markdown::Element::ListItem       => Termify::Markdown::Style.new(prefix: "* "),
+  Termify::Markdown::Element::Table          => Termify::Markdown::Style.new(dim: false),
 
   # ── inline elements ──────────────────────────────────────────────
   Termify::Markdown::Element::CodeInline    => Termify::Markdown::Style.new(fg: Termify::ANSI::FG_CYAN),

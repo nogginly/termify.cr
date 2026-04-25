@@ -22,6 +22,7 @@ module Termify
       HorizontalRule
       HtmlTag
       BlockHtml
+      Table
     end
 
     # Maps Element → Style.  Missing entries fall back to Style::NONE.
@@ -67,6 +68,7 @@ module Termify
           Element::Link          => Style.new(underline: true, fg: ANSI::FG_BRIGHT_BLUE),
           Element::HtmlTag       => Style.new(fg: ANSI::FG_RED),
           Element::BlockHtml     => Style.new(fg: ANSI::FG_RED),
+          Element::Table         => Style::NONE,
         } of Element => Style)
       end
     end

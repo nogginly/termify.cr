@@ -1,7 +1,14 @@
 require "../ansi"
+require "./table_renderer"
 
 module Termify
   module Markdown
+    enum BlockMode
+      Normal
+      CodeFence
+      Table
+    end
+
     # Streaming Markdown-to-ANSI renderer.
     #
     # Feed arbitrary chunks of Markdown text via #feed (or via the IO interface);
@@ -24,10 +31,6 @@ module Termify
     # Caller guarantees valid UTF-8; no BOM handling is performed.
     # read(Bytes) always raises -- the renderer is write-only.
     # The renderer never closes @io; the caller owns the output IO lifecycle.
-    enum BlockMode
-      Normal
-      CodeFence
-    end
 
     class Renderer < IO
       # -- patterns ----------------------------------------------------------
@@ -37,6 +40,16 @@ module Termify
       private HORIZONTAL_RULE = /^\s*(-{3,}|\*{3,}|_{3,})\s*$/
       private INLINE_HTML     = /<\/?[a-zA-Z][^>]*>/
       private BLOCK_HTML      = /^\s*<[^>]+>\s*$/
+
+      # Two kinds of table row syntax
+      #     | value | value ... |
+      #       value | value | ...
+      private TABLE_ROW = /^(\|.*\|)|(.*(\|.*)+)$/
+
+      # Two kinds of table row separator syntax
+      #     | ----- | -----| ... |
+      #       ----- | ---- | ...
+      private TABLE_SEPARATOR = /^(\|[\s|:-]+\|)|([\s|:-]+(\|[\s|:-]+)+)$/
 
       getter stylesheet : Stylesheet
       getter io : IO
@@ -59,6 +72,8 @@ module Termify
         @buf = String::Builder.new
         @block_mode = BlockMode::Normal
         @fence_marker = ""
+        @table_rows = [] of Array(String)
+        @table_col_alignments = [] of TableRenderer::ColumnAlignment
       end
 
       # Accepts the next chunk of Markdown. May be any size -- a single byte
@@ -77,6 +92,7 @@ module Termify
         flush_complete_lines
         remainder = @buf.to_s
         process_line(remainder) unless remainder.empty?
+        flush_table if @block_mode.table?
       end
 
       def closed? : Bool
@@ -101,6 +117,7 @@ module Termify
       # Dispatches one logical line to the appropriate block handler.
       private def process_line(line : String) : Nil
         return if process_fence_line(line)
+        return if process_table_line(line)
         dispatch_block(line)
       end
 
@@ -113,6 +130,57 @@ module Termify
           emit_raw(Element::CodeBlock, line)
         end
         true
+      end
+
+      # Handles a line while in Table mode, or detects a new table. Returns
+      # true if the line was consumed, false to fall through to dispatch_block.
+      private def process_table_line(line : String) : Bool
+        if @block_mode.table?
+          if TABLE_ROW.matches?(line)
+            buffer_table_row(line, @stylesheet[Element::Table])
+            return true
+          else
+            flush_table
+            return false
+          end
+        elsif TABLE_ROW.matches?(line)
+          @block_mode = BlockMode::Table
+          buffer_table_row(line, @stylesheet[Element::Table])
+          return true
+        end
+        false
+      end
+
+      # Parses and buffers one table row; silently drops separator rows.
+      private def buffer_table_row(line : String, style : Style) : Nil
+        # trim first/last column separator
+        line = line[1..-1] if line.starts_with?('|')
+        line = line[0..-2] if line.ends_with?('|')
+        cells = line.split("|").map(&.strip)
+
+        if TABLE_SEPARATOR.matches?(line)
+          @table_col_alignments = cells.map do |cell|
+            case cell
+            when .starts_with?(':') then TableRenderer::ColumnAlignment::Left
+            when .ends_with?(':')   then TableRenderer::ColumnAlignment::Right
+            else                         TableRenderer::ColumnAlignment::Middle
+            end
+          end
+        else
+          cells = cells.map do |cell|
+            String.build do |io|
+              emit_styled(Element::Table, render_inline(cell, style), io)
+            end
+          end
+          @table_rows << cells
+        end
+      end
+
+      # Renders buffered rows via TableRenderer and resets table state.
+      private def flush_table : Nil
+        TableRenderer.render(@table_rows, @table_col_alignments, @io) unless @table_rows.empty?
+        @table_rows.clear
+        @block_mode = BlockMode::Normal
       end
 
       private def fence_start?(line : String) : Bool
@@ -144,12 +212,12 @@ module Termify
         end
       end
 
-      private def emit_styled(element : Element, text : String) : Nil
+      private def emit_styled(element : Element, text : String, io = @io) : Nil
         style = @stylesheet[element]
         ansi = style.to_ansi
         prefix = style.prefix || ""
         reset = ansi.empty? ? "" : ANSI::RESET
-        @io << ansi << prefix << render_inline(text, style) << reset << '\n'
+        io << ansi << prefix << render_inline(text, style) << reset << '\n'
       end
 
       # Emits *text* verbatim -- no inline parsing. Used for code fence body
