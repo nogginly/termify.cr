@@ -6,11 +6,11 @@ Spectator.describe Termify::Markdown::Style do
   describe "initialization" do
     it "defaults all Bool flags to false" do
       s = Termify::Markdown::Style.new
-      expect(s.bold).to be_false
-      expect(s.italic).to be_false
-      expect(s.dim).to be_false
-      expect(s.underline).to be_false
-      expect(s.strikethrough).to be_false
+      expect(s.bold?).to be_false
+      expect(s.italic?).to be_false
+      expect(s.dim?).to be_false
+      expect(s.underline?).to be_false
+      expect(s.strikethrough?).to be_false
     end
 
     it "defaults all optional fields to nil" do
@@ -23,8 +23,8 @@ Spectator.describe Termify::Markdown::Style do
 
     it "accepts named arguments selectively" do
       s = Termify::Markdown::Style.new(bold: true, fg: Termify::ANSI::FG_RED)
-      expect(s.bold).to be_true
-      expect(s.italic).to be_false
+      expect(s.bold?).to be_true
+      expect(s.italic?).to be_false
       expect(s.fg).to eq(Termify::ANSI::FG_RED)
       expect(s.bg).to be_nil
     end
@@ -34,7 +34,7 @@ Spectator.describe Termify::Markdown::Style do
 
   describe "NONE" do
     it "is a Style with no attributes set" do
-      expect(Termify::Markdown::Style::NONE.bold).to be_false
+      expect(Termify::Markdown::Style::NONE.bold?).to be_false
       expect(Termify::Markdown::Style::NONE.fg).to be_nil
     end
 
@@ -143,15 +143,15 @@ Spectator.describe Termify::Markdown::Style do
       base = Termify::Markdown::Style.new(bold: true)
       other = Termify::Markdown::Style.new(italic: true)
       merged = base.merge(other)
-      expect(base.italic).to be_false # struct copy — self is never mutated
+      expect(base.italic?).to be_false # struct copy — self is never mutated
     end
 
     it "OR-merges Bool flags — both base and override contribute" do
       base = Termify::Markdown::Style.new(bold: true)
       other = Termify::Markdown::Style.new(italic: true)
       merged = base.merge(other)
-      expect(merged.bold).to be_true
-      expect(merged.italic).to be_true
+      expect(merged.bold?).to be_true
+      expect(merged.italic?).to be_true
     end
 
     it "override fg wins over base fg" do
@@ -187,14 +187,14 @@ Spectator.describe Termify::Markdown::Style do
     it "merging with NONE returns a style equal in value to self" do
       base = Termify::Markdown::Style.new(bold: true, fg: Termify::ANSI::FG_CYAN)
       merged = base.merge(Termify::Markdown::Style::NONE)
-      expect(merged.bold).to eq(base.bold)
+      expect(merged.bold?).to eq(base.bold?)
       expect(merged.fg).to eq(base.fg)
     end
 
     it "bold stays true when both sides are bold" do
       base = Termify::Markdown::Style.new(bold: true)
       other = Termify::Markdown::Style.new(bold: true)
-      expect(base.merge(other).bold).to be_true
+      expect(base.merge(other).bold?).to be_true
     end
   end
 end

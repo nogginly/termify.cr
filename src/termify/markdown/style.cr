@@ -11,11 +11,11 @@ module Termify
     # Composition: `base.merge(override)` returns a new Style where override
     # wins for every attribute it sets, leaving the rest from base.
     struct Style
-      getter bold : Bool
-      getter italic : Bool
-      getter dim : Bool
-      getter underline : Bool
-      getter strikethrough : Bool
+      getter? bold : Bool
+      getter? italic : Bool
+      getter? dim : Bool
+      getter? underline : Bool
+      getter? strikethrough : Bool
       getter fg : String?
       getter bg : String?
       # Literal text prepended to each rendered line (e.g. "# ", "│ ", "  ").
@@ -66,11 +66,11 @@ module Termify
       # Optional fields (fg, bg, prefix, suffix): `other` wins when non-nil.
       def merge(other : Style) : Style
         Style.new(
-          bold: @bold || other.bold,
-          italic: @italic || other.italic,
-          dim: @dim || other.dim,
-          underline: @underline || other.underline,
-          strikethrough: @strikethrough || other.strikethrough,
+          bold: @bold || other.bold?,
+          italic: @italic || other.italic?,
+          dim: @dim || other.dim?,
+          underline: @underline || other.underline?,
+          strikethrough: @strikethrough || other.strikethrough?,
           fg: other.fg || @fg,
           bg: other.bg || @bg,
           prefix: other.prefix || @prefix,

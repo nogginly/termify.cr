@@ -29,7 +29,7 @@ Spectator.describe Termify::Markdown::Stylesheet do
       sheet = Termify::Markdown::Stylesheet.new
       custom = Termify::Markdown::Style.new(bold: true, fg: Termify::ANSI::FG_RED)
       sheet[Termify::Markdown::Element::H1] = custom
-      expect(sheet[Termify::Markdown::Element::H1].bold).to be_true
+      expect(sheet[Termify::Markdown::Element::H1].bold?).to be_true
       expect(sheet[Termify::Markdown::Element::H1].fg).to eq(Termify::ANSI::FG_RED)
     end
 
@@ -38,8 +38,8 @@ Spectator.describe Termify::Markdown::Stylesheet do
       sheet[Termify::Markdown::Element::Bold] = Termify::Markdown::Style.new(bold: true)
       sheet[Termify::Markdown::Element::Bold] = Termify::Markdown::Style.new(italic: true)
       result = sheet[Termify::Markdown::Element::Bold]
-      expect(result.bold).to be_false
-      expect(result.italic).to be_true
+      expect(result.bold?).to be_false
+      expect(result.italic?).to be_true
     end
 
     it "does not affect other elements" do
@@ -60,8 +60,8 @@ Spectator.describe Termify::Markdown::Stylesheet do
 
     it "H1 is bold and underlined" do
       s = sheet[Termify::Markdown::Element::H1]
-      expect(s.bold).to be_true
-      expect(s.underline).to be_true
+      expect(s.bold?).to be_true
+      expect(s.underline?).to be_true
     end
 
     it "H1 has a foreground colour set" do
@@ -70,18 +70,18 @@ Spectator.describe Termify::Markdown::Stylesheet do
 
     it "H2 is bold but not underlined" do
       s = sheet[Termify::Markdown::Element::H2]
-      expect(s.bold).to be_true
-      expect(s.underline).to be_false
+      expect(s.bold?).to be_true
+      expect(s.underline?).to be_false
     end
 
     it "heading boldness decreases — H4 is dim" do
-      expect(sheet[Termify::Markdown::Element::H4].dim).to be_true
+      expect(sheet[Termify::Markdown::Element::H4].dim?).to be_true
     end
 
     it "H6 is dim and not bold" do
       s = sheet[Termify::Markdown::Element::H6]
-      expect(s.dim).to be_true
-      expect(s.bold).to be_false
+      expect(s.dim?).to be_true
+      expect(s.bold?).to be_false
     end
 
     it "Paragraph maps to Style::NONE" do
@@ -95,8 +95,8 @@ Spectator.describe Termify::Markdown::Stylesheet do
 
     it "Blockquote is italic and dim" do
       s = sheet[Termify::Markdown::Element::Blockquote]
-      expect(s.italic).to be_true
-      expect(s.dim).to be_true
+      expect(s.italic?).to be_true
+      expect(s.dim?).to be_true
     end
 
     it "CodeBlock has fg and bg set" do
@@ -110,20 +110,20 @@ Spectator.describe Termify::Markdown::Stylesheet do
     end
 
     it "Bold style is bold" do
-      expect(sheet[Termify::Markdown::Element::Bold].bold).to be_true
+      expect(sheet[Termify::Markdown::Element::Bold].bold?).to be_true
     end
 
     it "Italic style is italic" do
-      expect(sheet[Termify::Markdown::Element::Italic].italic).to be_true
+      expect(sheet[Termify::Markdown::Element::Italic].italic?).to be_true
     end
 
     it "Strikethrough style has strikethrough" do
-      expect(sheet[Termify::Markdown::Element::Strikethrough].strikethrough).to be_true
+      expect(sheet[Termify::Markdown::Element::Strikethrough].strikethrough?).to be_true
     end
 
     it "Link is underlined with a fg colour" do
       s = sheet[Termify::Markdown::Element::Link]
-      expect(s.underline).to be_true
+      expect(s.underline?).to be_true
       expect(s.fg).not_to be_nil
     end
 
@@ -145,7 +145,7 @@ Spectator.describe Termify::Markdown::Stylesheet do
       s1 = Termify::Markdown::Stylesheet.default
       s2 = Termify::Markdown::Stylesheet.default
       s1[Termify::Markdown::Element::Bold] = Termify::Markdown::Style::NONE
-      expect(s2[Termify::Markdown::Element::Bold].bold).to be_true
+      expect(s2[Termify::Markdown::Element::Bold].bold?).to be_true
     end
   end
 end

@@ -100,17 +100,29 @@ module Termify
 
       # Dispatches one logical line to the appropriate block handler.
       private def process_line(line : String) : Nil
-        if @block_mode.code_fence?
-          if line.starts_with?(@fence_marker)
-            @block_mode = BlockMode::Normal
-          else
-            emit_raw(Element::CodeBlock, line)
-          end
-          return
+        return if process_fence_line(line)
+        dispatch_block(line)
+      end
+
+      # Handles a line while in CodeFence mode. Returns true if consumed.
+      private def process_fence_line(line : String) : Bool
+        return false unless @block_mode.code_fence?
+        if line.starts_with?(@fence_marker)
+          @block_mode = BlockMode::Normal
+        else
+          emit_raw(Element::CodeBlock, line)
         end
+        true
+      end
+
+      private def fence_start?(line : String) : Bool
+        line.starts_with?("```") || line.starts_with?("~~~")
+      end
+
+      private def dispatch_block(line : String) : Nil
         if m = line.match(HEADING)
           emit_styled(heading_element(m[1].size), m[2])
-        elsif line.starts_with?("```") || line.starts_with?("~~~")
+        elsif fence_start?(line)
           @fence_marker = line[0, 3]
           @block_mode = BlockMode::CodeFence
         elsif line.starts_with?("> ")
@@ -159,132 +171,162 @@ module Termify
       #   *text*    -- Italic
       #   _text_    -- Italic (mid-word underscores emitted as literals)
       private def render_inline(text : String, block_style : Style) : String
-        out = String::Builder.new
+        buf = String::Builder.new
         inline_stack = [] of {Element, String}
         chars = text.chars
         i = 0
         n = chars.size
         while i < n
           c = chars[i]
-          # -- backtick: code span (highest priority, greedy) ----------------
-          if c == '`'
-            if j = find_char(chars, '`', i + 1)
-              code_text = chars[i + 1...j].join
-              out << @stylesheet[Element::CodeInline].to_ansi
-              out << code_text
-              out << replay_sequence(block_style, inline_stack)
-              i = j + 1
-            else
-              out << '`'
-              i += 1
-            end
-            # -- "<": inline HTML tag (dim red, shown verbatim) ----------------
-            # Tags are preserved as-is to signal their presence; no rendering
-            # is attempted. INLINE_HTML is kept as a constant for easy tuning.
-          elsif c == '<'
-            if m = chars[i..].join.match(INLINE_HTML)
-              tag = m[0]
-              out << @stylesheet[Element::HtmlTag].to_ansi
-              out << tag
-              out << replay_sequence(block_style, inline_stack)
-              i += tag.size
-            else
-              out << c
-              i += 1
-            end
-            # -- "[": link span [text](url) ------------------------------------
-            # URL is suppressed; link text is rendered with Link style (underline
-            # + FG_BRIGHT_BLUE) and passed through render_inline so bold/italic
-            # inside link text works. Unmatched "[" emitted as literal.
-          elsif c == '['
-            if close_bracket = find_char(chars, ']', i + 1)
-              if chars[close_bracket + 1]? == '(' &&
-                 (close_paren = find_char(chars, ')', close_bracket + 2))
-                link_text = chars[i + 1...close_bracket].join
-                link_style = @stylesheet[Element::Link]
-                out << link_style.to_ansi
-                out << render_inline(link_text, link_style)
-                out << replay_sequence(block_style, inline_stack)
-                i = close_paren + 1
-              else
-                out << '['
-                i += 1
+          i = case c
+              when '`' then scan_code_span(chars, i, buf, block_style, inline_stack)
+              when '<' then scan_html_tag(chars, i, buf, block_style, inline_stack)
+              when '[' then scan_link(chars, i, buf, block_style, inline_stack)
+              when '*' then scan_star(chars, i, n, buf, block_style, inline_stack)
+              when '~' then scan_tilde(chars, i, n, buf, block_style, inline_stack)
+              when '_' then scan_underscore(chars, i, n, buf, block_style, inline_stack)
+              else          buf << c; i + 1
               end
-            else
-              out << '['
-              i += 1
-            end
-            # -- "**": bold (must be checked before single "*") ----------------
-          elsif c == '*' && i + 1 < n && chars[i + 1] == '*'
-            if inline_stack.any? { |entry| entry[0] == Element::Bold }
-              pop_inline(Element::Bold, inline_stack)
-              out << replay_sequence(block_style, inline_stack)
-            else
-              if find_two_chars(chars, '*', i + 2)
-                seq = @stylesheet[Element::Bold].to_ansi
-                inline_stack << {Element::Bold, seq}
-                out << seq
-              else
-                out << "**"
-              end
-            end
-            i += 2
-            # -- "~~": strikethrough -------------------------------------------
-          elsif c == '~' && i + 1 < n && chars[i + 1] == '~'
-            if inline_stack.any? { |entry| entry[0] == Element::Strikethrough }
-              pop_inline(Element::Strikethrough, inline_stack)
-              out << replay_sequence(block_style, inline_stack)
-            else
-              if find_two_chars(chars, '~', i + 2)
-                seq = @stylesheet[Element::Strikethrough].to_ansi
-                inline_stack << {Element::Strikethrough, seq}
-                out << seq
-              else
-                out << "~~"
-              end
-            end
-            i += 2
-            # -- "*": italic ---------------------------------------------------
-          elsif c == '*'
-            if inline_stack.any? { |entry| entry[0] == Element::Italic }
-              pop_inline(Element::Italic, inline_stack)
-              out << replay_sequence(block_style, inline_stack)
-            else
-              if find_single_star(chars, i + 1)
-                seq = @stylesheet[Element::Italic].to_ansi
-                inline_stack << {Element::Italic, seq}
-                out << seq
-              else
-                out << '*'
-              end
-            end
-            i += 1
-            # -- "_": italic, mid-word exemption -------------------------------
-          elsif c == '_'
-            prev_word = i > 0 && chars[i - 1].alphanumeric?
-            next_word = i + 1 < n && chars[i + 1].alphanumeric?
-            if prev_word && next_word
-              out << '_'
-            elsif inline_stack.any? { |entry| entry[0] == Element::Italic }
-              pop_inline(Element::Italic, inline_stack)
-              out << replay_sequence(block_style, inline_stack)
-            else
-              if find_closing_underscore(chars, i + 1)
-                seq = @stylesheet[Element::Italic].to_ansi
-                inline_stack << {Element::Italic, seq}
-                out << seq
-              else
-                out << '_'
-              end
-            end
-            i += 1
-          else
-            out << c
-            i += 1
-          end
         end
-        out << replay_sequence(block_style, inline_stack) unless inline_stack.empty?
-        out.to_s
+        buf << replay_sequence(block_style, inline_stack) unless inline_stack.empty?
+        buf.to_s
+      end
+
+      # -- inline character scanners -----------------------------------------
+      # Each accepts the chars array and current index i; mutates `buf` and
+      # `inline_stack`; returns the next index to resume from.
+
+      private def scan_code_span(
+        chars : Array(Char), i : Int32, buf : String::Builder,
+        block_style : Style, inline_stack : Array({Element, String}),
+      ) : Int32
+        if j = find_char(chars, '`', i + 1)
+          buf << @stylesheet[Element::CodeInline].to_ansi
+          buf << chars[i + 1...j].join
+          buf << replay_sequence(block_style, inline_stack)
+          j + 1
+        else
+          buf << '`'
+          i + 1
+        end
+      end
+
+      # Inline HTML tag -- emitted verbatim in HtmlTag style.
+      private def scan_html_tag(
+        chars : Array(Char), i : Int32, buf : String::Builder,
+        block_style : Style, inline_stack : Array({Element, String}),
+      ) : Int32
+        if m = chars[i..].join.match(INLINE_HTML)
+          tag = m[0]
+          buf << @stylesheet[Element::HtmlTag].to_ansi
+          buf << tag
+          buf << replay_sequence(block_style, inline_stack)
+          i + tag.size
+        else
+          buf << chars[i]
+          i + 1
+        end
+      end
+
+      # Link span [text](url) -- URL suppressed; link text re-enters render_inline.
+      private def scan_link(
+        chars : Array(Char), i : Int32, buf : String::Builder,
+        block_style : Style, inline_stack : Array({Element, String}),
+      ) : Int32
+        if close_bracket = find_char(chars, ']', i + 1)
+          if chars[close_bracket + 1]? == '(' &&
+             (close_paren = find_char(chars, ')', close_bracket + 2))
+            link_text = chars[i + 1...close_bracket].join
+            link_style = @stylesheet[Element::Link]
+            buf << link_style.to_ansi
+            buf << render_inline(link_text, link_style)
+            buf << replay_sequence(block_style, inline_stack)
+            close_paren + 1
+          else
+            buf << '['
+            i + 1
+          end
+        else
+          buf << '['
+          i + 1
+        end
+      end
+
+      # "*" -- bold (**) or italic (*), determined by whether next char is also "*".
+      private def scan_star(
+        chars : Array(Char), i : Int32, n : Int32, buf : String::Builder,
+        block_style : Style, inline_stack : Array({Element, String}),
+      ) : Int32
+        if i + 1 < n && chars[i + 1] == '*'
+          if inline_stack.any? { |entry| entry[0] == Element::Bold }
+            pop_inline(Element::Bold, inline_stack)
+            buf << replay_sequence(block_style, inline_stack)
+          elsif find_two_chars(chars, '*', i + 2)
+            seq = @stylesheet[Element::Bold].to_ansi
+            inline_stack << {Element::Bold, seq}
+            buf << seq
+          else
+            buf << "**"
+          end
+          i + 2
+        else
+          if inline_stack.any? { |entry| entry[0] == Element::Italic }
+            pop_inline(Element::Italic, inline_stack)
+            buf << replay_sequence(block_style, inline_stack)
+          elsif find_single_star(chars, i + 1)
+            seq = @stylesheet[Element::Italic].to_ansi
+            inline_stack << {Element::Italic, seq}
+            buf << seq
+          else
+            buf << '*'
+          end
+          i + 1
+        end
+      end
+
+      # "~~" -- strikethrough. Lone "~" emitted as literal.
+      private def scan_tilde(
+        chars : Array(Char), i : Int32, n : Int32, buf : String::Builder,
+        block_style : Style, inline_stack : Array({Element, String}),
+      ) : Int32
+        if i + 1 < n && chars[i + 1] == '~'
+          if inline_stack.any? { |entry| entry[0] == Element::Strikethrough }
+            pop_inline(Element::Strikethrough, inline_stack)
+            buf << replay_sequence(block_style, inline_stack)
+          elsif find_two_chars(chars, '~', i + 2)
+            seq = @stylesheet[Element::Strikethrough].to_ansi
+            inline_stack << {Element::Strikethrough, seq}
+            buf << seq
+          else
+            buf << "~~"
+          end
+          i + 2
+        else
+          buf << '~'
+          i + 1
+        end
+      end
+
+      # "_" -- italic, with mid-word exemption (snake_case passes through).
+      private def scan_underscore(
+        chars : Array(Char), i : Int32, n : Int32, buf : String::Builder,
+        block_style : Style, inline_stack : Array({Element, String}),
+      ) : Int32
+        prev_word = i > 0 && chars[i - 1].alphanumeric?
+        next_word = i + 1 < n && chars[i + 1].alphanumeric?
+        if prev_word && next_word
+          buf << '_'
+        elsif inline_stack.any? { |entry| entry[0] == Element::Italic }
+          pop_inline(Element::Italic, inline_stack)
+          buf << replay_sequence(block_style, inline_stack)
+        elsif find_closing_underscore(chars, i + 1)
+          seq = @stylesheet[Element::Italic].to_ansi
+          inline_stack << {Element::Italic, seq}
+          buf << seq
+        else
+          buf << '_'
+        end
+        i + 1
       end
 
       # -- inline scanner helpers --------------------------------------------
