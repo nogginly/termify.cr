@@ -125,7 +125,7 @@ This is inline <span style="color: red;">html</span>
 MD
 
 ss = Termify::Markdown::Stylesheet.new({
-  :h1          => {bold: true, prefix: "# ".colorize},
+  :h1          => {bold: true, prefix: "# "},
   :h2          => {bold: true},
   :h3          => {bold: true},
   :h4          => {bold: true},
