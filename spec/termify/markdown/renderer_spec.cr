@@ -628,4 +628,93 @@ Spectator.describe Termify::Markdown::Renderer do
       end
     end
   end
+
+  # -------------------------------------------------------------------------
+  # Tables (Step 11)
+  # -------------------------------------------------------------------------
+  describe "tables" do
+    describe "basic pipe table (| col | col |)" do
+      it "renders the header cell text" do
+        output = render_block("| Name | Age |\n| --- | --- |\n| Alice | 30 |\n")
+        expect(output).to contain("Name")
+        expect(output).to contain("Age")
+      end
+
+      it "renders data row cell text" do
+        output = render_block("| Name | Age |\n| --- | --- |\n| Alice | 30 |\n")
+        expect(output).to contain("Alice")
+        expect(output).to contain("30")
+      end
+
+      it "does not render the separator row as a data row" do
+        output = render_block("| Name | Age |\n| --- | --- |\n| Alice | 30 |\n")
+        expect(output).to_not contain("---")
+      end
+
+      it "renders multiple data rows" do
+        output = render_block("| A | B |\n| --- | --- |\n| 1 | 2 |\n| 3 | 4 |\n")
+        expect(output).to contain("1")
+        expect(output).to contain("2")
+        expect(output).to contain("3")
+        expect(output).to contain("4")
+      end
+    end
+
+    describe "table without outer pipes" do
+      it "renders header cell text" do
+        output = render_block("Name | Age\n--- | ---\nBob | 25\n")
+        expect(output).to contain("Name")
+        expect(output).to contain("Age")
+      end
+
+      it "renders data row cell text" do
+        output = render_block("Name | Age\n--- | ---\nBob | 25\n")
+        expect(output).to contain("Bob")
+        expect(output).to contain("25")
+      end
+
+      it "does not render the separator row" do
+        output = render_block("Name | Age\n--- | ---\nBob | 25\n")
+        expect(output).to_not contain("---")
+      end
+    end
+
+    describe "empty cells" do
+      it "preserves empty cells in the output" do
+        output = render_block("| A | B | C |\n| --- | --- | --- |\n| 1 |  | 3 |\n")
+        expect(output).to contain("A")
+        expect(output).to contain("1")
+        expect(output).to contain("3")
+      end
+    end
+
+    describe "inline markup in cells" do
+      it "renders bold inside a cell" do
+        output = render_block("| Header |\n| --- |\n| **bold** |\n")
+        expect(output).to contain(ANSI::BOLD)
+        expect(output).to contain("bold")
+      end
+
+      it "renders code spans inside a cell" do
+        output = render_block("| Header |\n| --- |\n| `code` |\n")
+        expect(output).to contain(ANSI::FG_CYAN)
+        expect(output).to contain("code")
+      end
+    end
+
+    describe "table boundaries" do
+      it "flushes the table and renders following paragraph" do
+        output = render_block("| A |\n| --- |\n| 1 |\n\nfollowing paragraph\n")
+        expect(output).to contain("A")
+        expect(output).to contain("1")
+        expect(output).to contain("following paragraph")
+      end
+
+      it "flushes the table at EOF without a trailing newline" do
+        output = render_block("| A |\n| --- |\n| 1 |")
+        expect(output).to contain("A")
+        expect(output).to contain("1")
+      end
+    end
+  end
 end

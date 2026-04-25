@@ -142,4 +142,64 @@ Spectator.describe Termify::Markdown::Stylesheet do
       expect(s2[Termify::Markdown::Element::Bold].bold?).to be_true
     end
   end
+
+  # ── .new (symbol constructor) ────────────────────────────────────────────────
+
+  describe ".new (symbol constructor)" do
+    it "maps a symbol key to the correct Element" do
+      sheet = Termify::Markdown::Stylesheet.new({:bold => {bold: true}})
+      expect(sheet[Termify::Markdown::Element::Bold].bold?).to be_true
+    end
+
+    it "sets fg from the named tuple" do
+      sheet = Termify::Markdown::Stylesheet.new({:paragraph => {fg: Termify::ANSI::FG_CYAN}})
+      expect(sheet[Termify::Markdown::Element::Paragraph].fg).to eq(Termify::ANSI::FG_CYAN)
+    end
+
+    it "sets bg from the named tuple" do
+      sheet = Termify::Markdown::Stylesheet.new({:code_block => {bg: Termify::ANSI::BG_BLACK}})
+      expect(sheet[Termify::Markdown::Element::CodeBlock].bg).to eq(Termify::ANSI::BG_BLACK)
+    end
+
+    it "sets prefix from the named tuple" do
+      sheet = Termify::Markdown::Stylesheet.new({:blockquote => {prefix: "> "}})
+      expect(sheet[Termify::Markdown::Element::Blockquote].prefix).to eq("> ")
+    end
+
+    it "sets suffix from the named tuple" do
+      sheet = Termify::Markdown::Stylesheet.new({:h1 => {suffix: "\n"}})
+      expect(sheet[Termify::Markdown::Element::H1].suffix).to eq("\n")
+    end
+
+    it "defaults missing bool keys to false" do
+      sheet = Termify::Markdown::Stylesheet.new({:bold => {fg: Termify::ANSI::FG_RED}})
+      expect(sheet[Termify::Markdown::Element::Bold].bold?).to be_false
+    end
+
+    it "defaults missing fg/bg to nil" do
+      sheet = Termify::Markdown::Stylesheet.new({:bold => {bold: true}})
+      expect(sheet[Termify::Markdown::Element::Bold].fg).to be_nil
+      expect(sheet[Termify::Markdown::Element::Bold].bg).to be_nil
+    end
+
+    it "accepts multiple entries" do
+      sheet = Termify::Markdown::Stylesheet.new({
+        :bold   => {bold: true},
+        :italic => {italic: true},
+      })
+      expect(sheet[Termify::Markdown::Element::Bold].bold?).to be_true
+      expect(sheet[Termify::Markdown::Element::Italic].italic?).to be_true
+    end
+
+    it "raises for an unknown symbol key" do
+      expect_raises(Exception) do
+        Termify::Markdown::Stylesheet.new({:unknown_element => {bold: true}})
+      end
+    end
+
+    it "returns Style::NONE for unmapped elements" do
+      sheet = Termify::Markdown::Stylesheet.new({:bold => {bold: true}})
+      expect(sheet[Termify::Markdown::Element::Italic]).to eq(Termify::Markdown::Style::NONE)
+    end
+  end
 end
