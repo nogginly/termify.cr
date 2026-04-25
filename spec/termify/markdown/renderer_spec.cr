@@ -188,12 +188,6 @@ Spectator.describe Termify::Markdown::Renderer do
         expect(output).to contain("quote text")
       end
 
-      it "applies italic + dim styling" do
-        output = render_line("> quote text")
-        expect(output).to contain(ANSI::ITALIC)
-        expect(output).to contain(ANSI::DIM)
-      end
-
       it "handles '>' without a trailing space" do
         output = render_line(">no space")
         expect(output).to contain("| ")

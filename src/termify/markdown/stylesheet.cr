@@ -32,6 +32,25 @@ module Termify
       def initialize(@styles : Hash(Element, Style) = {} of Element => Style)
       end
 
+      def initialize(styles : Hash(Symbol, NamedTuple))
+        @styles = {} of Element => Style
+        styles.each do |sym, opts|
+          elem = Element.parse(sym.to_s)
+          sty = Style.new(
+            bold: opts["bold"]? || false,
+            italic: opts["italic"]? || false,
+            dim: opts["dim"]? || false,
+            underline: opts["underline"]? || false,
+            strikethrough: opts["strikethrough"]? || false,
+            fg: opts["fg"]? || nil,
+            bg: opts["bg"]? || nil,
+            prefix: opts["prefix"]? || nil,
+            suffix: opts["suffix"]? || nil,
+          )
+          @styles[elem] = sty
+        end
+      end
+
       # Look up the style for *element*; returns Style::NONE if not mapped.
       def [](element : Element) : Style
         @styles.fetch(element, Style::NONE)
@@ -46,16 +65,16 @@ module Termify
       def self.default : Stylesheet
         new({
           # ── headings — bold + colour hierarchy, no literal prefix ───────
-          Element::H1 => Style.new(bold: true, underline: true, fg: ANSI::FG_BRIGHT_WHITE),
-          Element::H2 => Style.new(bold: true, fg: ANSI::FG_BRIGHT_WHITE),
-          Element::H3 => Style.new(bold: true, fg: ANSI::FG_WHITE),
-          Element::H4 => Style.new(bold: true, dim: true),
-          Element::H5 => Style.new(italic: true, dim: true),
-          Element::H6 => Style.new(dim: true),
+          Element::H1 => Style.new(bold: true, underline: true, fg: ANSI::FG_BRIGHT_WHITE, prefix: "# ", suffix: "\n"),
+          Element::H2 => Style.new(bold: true, underline: true, fg: ANSI::FG_BRIGHT_WHITE),
+          Element::H3 => Style.new(bold: true, underline: true, fg: ANSI::FG_WHITE),
+          Element::H4 => Style.new(bold: true, underline: true, dim: true),
+          Element::H5 => Style.new(italic: true, underline: true, dim: true),
+          Element::H6 => Style.new(dim: true, underline: true),
 
           # ── block elements ───────────────────────────────────────────────
           Element::Paragraph      => Style::NONE,
-          Element::Blockquote     => Style.new(italic: true, dim: true, prefix: "| "),
+          Element::Blockquote     => Style.new(prefix: "| "),
           Element::CodeBlock      => Style.new(fg: ANSI::FG_BRIGHT_WHITE, bg: ANSI::BG_BRIGHT_BLACK),
           Element::HorizontalRule => Style.new(dim: true),
           Element::ListItem       => Style.new(prefix: "* "),

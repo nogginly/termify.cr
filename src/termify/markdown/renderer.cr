@@ -217,7 +217,7 @@ module Termify
         ansi = style.to_ansi
         prefix = style.prefix || ""
         reset = ansi.empty? ? "" : ANSI::RESET
-        io << ansi << prefix << render_inline(text, style) << reset << '\n'
+        io << ansi << prefix << render_inline(text, style) << reset << style.suffix << '\n'
       end
 
       # Emits *text* verbatim -- no inline parsing. Used for code fence body

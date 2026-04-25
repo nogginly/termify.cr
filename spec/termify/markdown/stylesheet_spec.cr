@@ -68,10 +68,10 @@ Spectator.describe Termify::Markdown::Stylesheet do
       expect(sheet[Termify::Markdown::Element::H1].fg).not_to be_nil
     end
 
-    it "H2 is bold but not underlined" do
+    it "H2 is bold and underlined" do
       s = sheet[Termify::Markdown::Element::H2]
       expect(s.bold?).to be_true
-      expect(s.underline?).to be_false
+      expect(s.underline?).to be_true
     end
 
     it "heading boldness decreases — H4 is dim" do
@@ -91,12 +91,6 @@ Spectator.describe Termify::Markdown::Stylesheet do
 
     it "Blockquote has a prefix" do
       expect(sheet[Termify::Markdown::Element::Blockquote].prefix).not_to be_nil
-    end
-
-    it "Blockquote is italic and dim" do
-      s = sheet[Termify::Markdown::Element::Blockquote]
-      expect(s.italic?).to be_true
-      expect(s.dim?).to be_true
     end
 
     it "CodeBlock has fg and bg set" do
