@@ -42,12 +42,35 @@ MARKDOWN = <<-MD
 
 1. Lorem ipsum dolor sit amet
 2. Lorem ipsum dolor sit amet
+  5. Lorem ipsum dolor sit amet
+  5. Lorem ipsum dolor sit amet
 3. Lorem ipsum dolor sit amet
 
 #### Start numbering with offset:
 
 57. Lorem ipsum dolor sit amet
 1. Lorem ipsum dolor sit amet
+
+#### Lists with paragraphs
+
+1. First item
+
+   This is the second paragraph of the first item. Indent to keep it within the list item.
+
+2. Second item
+
+
+
+   ```
+   This is the second paragraph of the second item.
+   ```
+
+3. Third item
+
+    Heading | Heading
+    --------|--------
+    Value   | Value2
+
 
 #### Checkboxes
 
@@ -95,19 +118,19 @@ console.log(foo(5))
 
 ### Tables
 
-| Heading1 | Heading2                   | Heading 3
-| -------- | -------------------------- |-------------
-| row1     | | Lorem ipsum dolor sit amet |
-| row2     | Lorem ipsum _dolor_ sit amet |
-| row3     | Lorem ipsum **dolor** sit amet |
+|Heading1|Heading2                      |Heading 3                 |
+|--------|------------------------------|--------------------------|
+|row1    |                              |Lorem ipsum dolor sit amet|
+|row2    |Lorem ipsum _dolor_ sit amet  |                          |
+|row3    |Lorem ipsum **dolor** sit amet|                          |
 
 Right aligned columns
 
-| Heading1 |                   Heading2 |
-| -------: | -------------------------: |
-|     row1 | Lorem ipsum dolor sit amet |
-|     row2 | Lorem ipsum `dolor` sit amet |
-|     row3 | Lorem ipsum dolor sit amet |
+|Heading1|                    Heading2|
+|-------:|---------------------------:|
+|    row1|  Lorem ipsum dolor sit amet|
+|    row2|Lorem ipsum `dolor` sit amet|
+|    row3|  Lorem ipsum dolor sit amet|
 
 ### HTML
 
@@ -131,7 +154,7 @@ ss = Termify::Markdown::Stylesheet.new({
   :h4          => {bold: true},
   :h5          => {bold: true},
   :h6          => {bold: true},
-  :code_block  => {fg: Termify::ANSI::FG_WHITE, dim: true, prefix: "  "},
+  :code_block  => {fg: Termify::ANSI::FG_WHITE, dim: true, prefix: "` "},
   :code_inline => {fg: Termify::ANSI::FG_RED},
   :html_tag    => {dim: true},
   :block_html  => {dim: true},

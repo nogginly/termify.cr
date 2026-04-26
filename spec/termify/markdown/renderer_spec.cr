@@ -219,6 +219,24 @@ Spectator.describe Termify::Markdown::Renderer do
         # Split at "normal" and check that the code bg is not present after it
         expect(output).to contain("normal")
       end
+
+      it "recognises a fence with 1 leading space" do
+        output = render_block(" ```\nsome code\n ```\n")
+        expect(output).to contain("some code")
+        expect(output).to contain(ANSI::FG_BRIGHT_WHITE)
+      end
+
+      it "recognises a fence with 3 leading spaces" do
+        output = render_block("   ```\nsome code\n   ```\n")
+        expect(output).to contain("some code")
+        expect(output).to contain(ANSI::FG_BRIGHT_WHITE)
+      end
+
+      it "does not recognise a fence with 4 or more leading spaces" do
+        output = render_block("    ```\nsome code\n    ```\n")
+        # 4-space indent is not a fence -- falls through to paragraph
+        expect(output).to_not contain(ANSI::FG_BRIGHT_WHITE)
+      end
     end
 
     describe "list items" do
@@ -733,10 +751,15 @@ Spectator.describe Termify::Markdown::Renderer do
     end
 
     describe "list termination" do
-      it "terminates on a blank line and renders following paragraph" do
+      it "terminates on a non-indented line after a blank" do
         output = render_block("- item\n\nfollowing\n")
         expect(output).to contain("item")
         expect(output).to contain("following")
+      end
+
+      it "emits a blank line before the non-list line that terminated the list" do
+        output = render_block("- item\n\nfollowing\n")
+        expect(output).to contain("\n\n")
       end
 
       it "terminates on a heading" do
@@ -745,9 +768,75 @@ Spectator.describe Termify::Markdown::Renderer do
         expect(output).to contain("Heading")
       end
 
-      it "resets counter after list ends and a new list starts" do
-        output = render_block("1. first list\n\n1. new list\n")
-        expect(output.scan("1. ").size).to be >= 2
+      it "continues counter across a blank line (loose list)" do
+        output = render_block("1. first\n\n1. second\n")
+        expect(output).to contain("1. ")
+        expect(output).to contain("2. ")
+      end
+
+      it "resets counter when a new list starts after the previous one exits" do
+        output = render_block("1. first list\n\nnot a list\n\n1. new list\n")
+        expect(output.scan("1. ").size).to eq(2)
+      end
+    end
+
+    describe "continuation blocks" do
+      it "renders an indented paragraph as part of the same list item" do
+        output = render_block("1. First item\n\n   Continuation paragraph.\n")
+        expect(output).to contain("First item")
+        expect(output).to contain("Continuation paragraph.")
+      end
+
+      it "indents continuation paragraph to content column" do
+        # "1. item" -> content_indent = 3; continuation should be preceded by 3 spaces
+        output = render_block("1. item\n\n   continuation\n")
+        expect(output).to contain("   continuation")
+      end
+
+      it "indents continuation paragraph for unordered list to content column" do
+        # "- item" -> content_indent = 2; continuation should be preceded by 2 spaces
+        output = render_block("- item\n\n  continuation\n")
+        expect(output).to contain("  continuation")
+      end
+
+      it "swallows blank lines within a list item (no blank emitted between item and continuation)" do
+        output = render_block("1. item\n\n   continuation\n")
+        lines = output.split('\n')
+        item_idx = lines.index { |l| l.includes?("item") }.not_nil!
+        cont_idx = lines.index { |l| l.includes?("continuation") }.not_nil!
+        # No blank line between item and continuation
+        expect(cont_idx - item_idx).to eq(1)
+      end
+
+      it "renders a continuation after multiple blank lines" do
+        output = render_block("1. item\n\n\n   continuation\n")
+        expect(output).to contain("item")
+        expect(output).to contain("continuation")
+      end
+
+      it "renders an indented code fence as part of the same list item" do
+        output = render_block("1. item\n\n   ```\n   code here\n   ```\n")
+        expect(output).to contain("item")
+        expect(output).to contain("code here")
+      end
+
+      it "indents code fence body lines to content column" do
+        # content_indent = 3; code body should be preceded by 3 spaces
+        output = render_block("1. item\n\n   ```\n   code here\n   ```\n")
+        expect(output).to contain("   code here")
+      end
+
+      it "renders an indented table as part of the same list item" do
+        output = render_block("1. item\n\n   A | B\n   --|--\n   1 | 2\n")
+        expect(output).to contain("item")
+        expect(output).to contain("A")
+        expect(output).to contain("1")
+      end
+
+      it "resumes list numbering after a continuation block" do
+        output = render_block("1. first\n\n   paragraph\n\n2. second\n")
+        expect(output).to contain("1. ")
+        expect(output).to contain("2. ")
       end
     end
   end

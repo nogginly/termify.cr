@@ -75,7 +75,8 @@ module Termify
         @fence_marker = ""
         @table_rows = [] of Array(String)
         @table_col_alignments = [] of TableRenderer::ColumnAlignment
-        @list_stack = [] of NamedTuple(indent: Int32, ordered: Bool, counter: Int32)
+        @list_stack = [] of NamedTuple(indent: Int32, ordered: Bool, counter: Int32, content_indent: Int32)
+        @list_pending_blank = false
       end
 
       # Accepts the next chunk of Markdown. May be any size -- a single byte
@@ -119,18 +120,24 @@ module Termify
       # Dispatches one logical line to the appropriate block handler.
       private def process_line(line : String) : Nil
         return if process_fence_line(line)
+        unless @list_stack.empty?
+          return if handle_list_line(line)
+          # handle_list_line returned false: list was exited, dispatch normally
+        end
         return if process_table_line(line)
-        exit_list unless list_line?(line)
         dispatch_block(line)
       end
 
       # Handles a line while in CodeFence mode. Returns true if consumed.
+      # When inside a list, strips the item's content indent before checking
+      # the fence marker so indented fences work correctly.
       private def process_fence_line(line : String) : Bool
         return false unless @block_mode.code_fence?
-        if line.starts_with?(@fence_marker)
+        stripped = @list_stack.empty? ? line : strip_list_indent(line, @list_stack.last[:content_indent])
+        if stripped.starts_with?(@fence_marker)
           @block_mode = BlockMode::Normal
         else
-          emit_raw(Element::CodeBlock, line)
+          emit_raw(Element::CodeBlock, stripped)
         end
         true
       end
@@ -179,10 +186,17 @@ module Termify
         end
       end
 
+      # Returns leading spaces matching current list content indent, or "".
+      private def list_visual_indent : String
+        @list_stack.empty? ? "" : " " * @list_stack.last[:content_indent]
+      end
+
       # Renders buffered rows via TableRenderer and resets table state.
       private def flush_table : Nil
-        TableRenderer.render(@table_rows, @table_col_alignments, @io) unless @table_rows.empty?
+        indent = @list_stack.empty? ? 0 : @list_stack.last[:content_indent]
+        TableRenderer.render(@table_rows, @table_col_alignments, @io, indent) unless @table_rows.empty?
         @table_rows.clear
+        @table_col_alignments.clear
         @block_mode = BlockMode::Normal
       end
 
@@ -191,10 +205,61 @@ module Termify
         UNORDERED_LIST.matches?(line) || ORDERED_LIST.matches?(line)
       end
 
-      # Clears the list nesting stack. Called on any non-list line.
-      # Note: blank lines also terminate lists (loose list support is deferred).
+      # Clears list nesting state. Called on any non-continuation, non-list line.
+      # Blank lines within a list item are swallowed (loose list termination deferred).
       private def exit_list : Nil
         @list_stack.clear
+        @list_pending_blank = false
+      end
+
+      # Handles a line while a list is active. Returns true if the line was
+      # consumed; false if the list was exited and the line needs normal dispatch.
+      #
+      # Blank lines are swallowed (set @list_pending_blank) rather than terminating
+      # the list immediately, to support continuation blocks. The list exits only
+      # when a non-blank, non-continuation, non-list line appears.
+      private def handle_list_line(line : String) : Bool
+        if line.empty?
+          @list_pending_blank = true
+          return true
+        end
+
+        pending = @list_pending_blank
+        @list_pending_blank = false
+        content_indent = @list_stack.last[:content_indent]
+
+        if list_line?(line)
+          flush_table if @block_mode.table?
+          process_list_item(line)
+          true
+        elsif list_continuation?(line, content_indent)
+          dispatch_continuation(strip_list_indent(line, content_indent))
+          true
+        else
+          flush_table if @block_mode.table?
+          exit_list
+          @io << '\n' if pending
+          false
+        end
+      end
+
+      # Returns true if *line* has enough leading whitespace to be a continuation
+      # block of the current list item (i.e. leading spaces >= content_indent).
+      private def list_continuation?(line : String, content_indent : Int32) : Bool
+        (line.size - line.lstrip.size) >= content_indent
+      end
+
+      # Strips exactly *n* leading characters from *line*.
+      # Safe: if *line* is shorter than *n*, strips all leading whitespace instead.
+      private def strip_list_indent(line : String, n : Int32) : String
+        line.size >= n ? line[n..] : line.lstrip
+      end
+
+      # Dispatches a continuation line (already de-indented) through the normal
+      # table and block pipeline, bypassing the list check.
+      private def dispatch_continuation(line : String) : Nil
+        return if process_table_line(line)
+        dispatch_block(line)
       end
 
       # Updates @list_stack and emits one list item with a depth-aware prefix.
@@ -208,24 +273,25 @@ module Termify
                   else
                     line.match!(UNORDERED_LIST)[1]
                   end
+        content_indent = line.size - content.size
 
         if @list_stack.empty? || indent > @list_stack.last[:indent]
           # New deeper level -- push a fresh entry.
-          @list_stack << {indent: indent, ordered: ordered, counter: ordered ? 1 : 0}
+          @list_stack << {indent: indent, ordered: ordered, counter: ordered ? 1 : 0, content_indent: content_indent}
         elsif indent < @list_stack.last[:indent]
           # Returning to a shallower level -- pop until we match.
           while @list_stack.size > 1 && @list_stack.last[:indent] > indent
             @list_stack.pop
           end
-          increment_counter if ordered
+          increment_counter(content_indent) if ordered
         else
           # Same level -- increment counter (no-op for unordered).
           if ordered != @list_stack.last[:ordered]
             # Type changed at same indent -- treat as a fresh level.
             @list_stack.pop
-            @list_stack << {indent: indent, ordered: ordered, counter: ordered ? 1 : 0}
+            @list_stack << {indent: indent, ordered: ordered, counter: ordered ? 1 : 0, content_indent: content_indent}
           else
-            increment_counter if ordered
+            increment_counter(content_indent) if ordered
           end
         end
 
@@ -238,10 +304,10 @@ module Termify
         emit_list_item(content, list_prefix)
       end
 
-      # Increments the counter on the top stack entry in place.
-      private def increment_counter : Nil
+      # Increments the counter on the top stack entry, preserving all other fields.
+      private def increment_counter(content_indent : Int32) : Nil
         last = @list_stack.pop
-        @list_stack << {indent: last[:indent], ordered: last[:ordered], counter: last[:counter] + 1}
+        @list_stack << {indent: last[:indent], ordered: last[:ordered], counter: last[:counter] + 1, content_indent: content_indent}
       end
 
       # Emits one list item using ListItem stylesheet style but a dynamic prefix.
@@ -253,14 +319,16 @@ module Termify
       end
 
       private def fence_start?(line : String) : Bool
-        line.starts_with?("```") || line.starts_with?("~~~")
+        stripped = line.lstrip
+        return false if line.size - stripped.size > 3
+        stripped.starts_with?("```") || stripped.starts_with?("~~~")
       end
 
       private def dispatch_block(line : String) : Nil
         if m = line.match(HEADING)
           emit_styled(heading_element(m[1].size), m[2])
         elsif fence_start?(line)
-          @fence_marker = line[0, 3]
+          @fence_marker = line.lstrip[0, 3]
           @block_mode = BlockMode::CodeFence
         elsif line.starts_with?("> ")
           emit_styled(Element::Blockquote, line[2..])
@@ -284,7 +352,8 @@ module Termify
         ansi = style.to_ansi
         prefix = style.prefix || ""
         reset = ansi.empty? ? "" : ANSI::RESET
-        io << ansi << prefix << render_inline(text, style) << reset << style.suffix << '\n'
+        list_indent = io.same?(@io) ? list_visual_indent : ""
+        io << ansi << list_indent << prefix << render_inline(text, style) << reset << style.suffix << '\n'
       end
 
       # Emits *text* verbatim -- no inline parsing. Used for code fence body
@@ -294,7 +363,7 @@ module Termify
         ansi = style.to_ansi
         prefix = style.prefix || ""
         reset = ansi.empty? ? "" : ANSI::RESET
-        @io << ansi << prefix << text << reset << '\n'
+        @io << ansi << list_visual_indent << prefix << text << reset << '\n'
       end
 
       # Left-to-right inline scanner. Supported spans (in priority order):
