@@ -266,42 +266,50 @@ module Termify
       # The stylesheet ListItem prefix is intentionally bypassed here -- depth
       # and bullet/counter are computed dynamically from the stack.
       private def process_list_item(line : String) : Nil
+        indent, ordered, content, content_indent = parse_list_line(line)
+        update_list_stack(indent, ordered, content_indent)
+        emit_list_item(content, list_item_prefix(ordered))
+      end
+
+      # Parses indent, type, content text, and content column from a list line.
+      private def parse_list_line(line : String) : {Int32, Bool, String, Int32}
         indent = line.size - line.lstrip.size
         ordered = ORDERED_LIST.matches?(line)
-        content = if ordered
-                    line.match!(ORDERED_LIST)[1]
-                  else
-                    line.match!(UNORDERED_LIST)[1]
-                  end
-        content_indent = line.size - content.size
+        content = ordered ? line.match!(ORDERED_LIST)[1] : line.match!(UNORDERED_LIST)[1]
+        {indent, ordered, content, line.size - content.size}
+      end
 
+      # Updates the list nesting stack for a new item at *indent*.
+      private def update_list_stack(indent : Int32, ordered : Bool, content_indent : Int32) : Nil
         if @list_stack.empty? || indent > @list_stack.last[:indent]
-          # New deeper level -- push a fresh entry.
-          @list_stack << {indent: indent, ordered: ordered, counter: ordered ? 1 : 0, content_indent: content_indent}
+          push_list_level(indent, ordered, content_indent)
         elsif indent < @list_stack.last[:indent]
-          # Returning to a shallower level -- pop until we match.
           while @list_stack.size > 1 && @list_stack.last[:indent] > indent
             @list_stack.pop
           end
           increment_counter(content_indent) if ordered
+        elsif ordered != @list_stack.last[:ordered]
+          # Type changed at same indent -- treat as a fresh level.
+          @list_stack.pop
+          push_list_level(indent, ordered, content_indent)
         else
-          # Same level -- increment counter (no-op for unordered).
-          if ordered != @list_stack.last[:ordered]
-            # Type changed at same indent -- treat as a fresh level.
-            @list_stack.pop
-            @list_stack << {indent: indent, ordered: ordered, counter: ordered ? 1 : 0, content_indent: content_indent}
-          else
-            increment_counter(content_indent) if ordered
-          end
+          increment_counter(content_indent) if ordered
         end
+      end
 
+      # Pushes a new level onto the list stack.
+      private def push_list_level(indent : Int32, ordered : Bool, content_indent : Int32) : Nil
+        @list_stack << {indent: indent, ordered: ordered, counter: ordered ? 1 : 0, content_indent: content_indent}
+      end
+
+      # Returns the prefix string for the current list depth and type.
+      private def list_item_prefix(ordered : Bool) : String
         depth = @list_stack.size - 1
-        list_prefix = if ordered
-                        "  " * depth + @list_stack.last[:counter].to_s + ". "
-                      else
-                        "  " * depth + BULLETS[depth % BULLETS.size] + " "
-                      end
-        emit_list_item(content, list_prefix)
+        if ordered
+          "  " * depth + @list_stack.last[:counter].to_s + ". "
+        else
+          "  " * depth + BULLETS[depth % BULLETS.size] + " "
+        end
       end
 
       # Increments the counter on the top stack entry, preserving all other fields.
