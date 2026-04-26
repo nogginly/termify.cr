@@ -1,5 +1,5 @@
 name: termify
-version: 0.1.0
+version: 0.2.0
 license: MPL-2.0
 authors:
   - nogginly <nogginly@icloud.com>
@@ -13,3 +13,7 @@ development_dependencies:
 dependencies:
   tallboy:
     github: epoch/tallboy
+
+targets:
+  hello:
+    main: samples/hello.cr
