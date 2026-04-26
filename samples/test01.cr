@@ -159,6 +159,7 @@ ss = Termify::Markdown::Stylesheet.new({
   :html_tag    => {dim: true},
   :block_html  => {dim: true},
   :table       => {fg: Termify::ANSI::FG_DEFAULT},
+  :block_quote => {prefix: "│ "},
 })
 
 Termify.render_markdown(STDOUT, ss) do |io|
