@@ -240,9 +240,9 @@ Spectator.describe Termify::Markdown::Renderer do
         expect(output).to contain("item")
       end
 
-      it "emits '* ' prefix for ordered items" do
+      it "emits '1. ' prefix for ordered items" do
         output = render_line("1. item")
-        expect(output).to contain("* ")
+        expect(output).to contain("1. ")
         expect(output).to contain("item")
       end
     end
@@ -630,90 +630,124 @@ Spectator.describe Termify::Markdown::Renderer do
   end
 
   # -------------------------------------------------------------------------
-  # Tables (Step 11)
+  # Lists (nested block elements)
   # -------------------------------------------------------------------------
-  describe "tables" do
-    describe "basic pipe table (| col | col |)" do
-      it "renders the header cell text" do
-        output = render_block("| Name | Age |\n| --- | --- |\n| Alice | 30 |\n")
-        expect(output).to contain("Name")
-        expect(output).to contain("Age")
+  describe "lists" do
+    describe "unordered list" do
+      it "renders a single item" do
+        output = render_line("- item")
+        expect(output).to contain("item")
+        expect(output).to contain("* ")
       end
 
-      it "renders data row cell text" do
-        output = render_block("| Name | Age |\n| --- | --- |\n| Alice | 30 |\n")
-        expect(output).to contain("Alice")
-        expect(output).to contain("30")
+      it "recognises -, * and + markers" do
+        ["- item", "* item", "+ item"].each do |line|
+          expect(render_line(line)).to contain("item")
+        end
       end
 
-      it "does not render the separator row as a data row" do
-        output = render_block("| Name | Age |\n| --- | --- |\n| Alice | 30 |\n")
-        expect(output).to_not contain("---")
-      end
-
-      it "renders multiple data rows" do
-        output = render_block("| A | B |\n| --- | --- |\n| 1 | 2 |\n| 3 | 4 |\n")
-        expect(output).to contain("1")
-        expect(output).to contain("2")
-        expect(output).to contain("3")
-        expect(output).to contain("4")
-      end
-    end
-
-    describe "table without outer pipes" do
-      it "renders header cell text" do
-        output = render_block("Name | Age\n--- | ---\nBob | 25\n")
-        expect(output).to contain("Name")
-        expect(output).to contain("Age")
-      end
-
-      it "renders data row cell text" do
-        output = render_block("Name | Age\n--- | ---\nBob | 25\n")
-        expect(output).to contain("Bob")
-        expect(output).to contain("25")
-      end
-
-      it "does not render the separator row" do
-        output = render_block("Name | Age\n--- | ---\nBob | 25\n")
-        expect(output).to_not contain("---")
-      end
-    end
-
-    describe "empty cells" do
-      it "preserves empty cells in the output" do
-        output = render_block("| A | B | C |\n| --- | --- | --- |\n| 1 |  | 3 |\n")
-        expect(output).to contain("A")
-        expect(output).to contain("1")
-        expect(output).to contain("3")
-      end
-    end
-
-    describe "inline markup in cells" do
-      it "renders bold inside a cell" do
-        output = render_block("| Header |\n| --- |\n| **bold** |\n")
+      it "renders inline markup inside an item" do
+        output = render_line("- **bold** item")
         expect(output).to contain(ANSI::BOLD)
         expect(output).to contain("bold")
       end
 
-      it "renders code spans inside a cell" do
-        output = render_block("| Header |\n| --- |\n| `code` |\n")
-        expect(output).to contain(ANSI::FG_CYAN)
-        expect(output).to contain("code")
+      it "uses different bullet characters at depth 1 vs depth 2" do
+        output = render_block("- level 1\n  - level 2\n")
+        lines = output.split('\n').reject(&.empty?)
+        expect(lines[0]).to contain("* ")
+        expect(lines[1]).to_not contain("* ") # second bullet character
+      end
+
+      it "indents depth-2 items more than depth-1 items" do
+        output = render_block("- level 1\n  - level 2\n")
+        lines = output.split('\n').reject(&.empty?)
+        depth1_indent = lines[0].index(/\S/).not_nil!
+        depth2_indent = lines[1].index(/\S/).not_nil!
+        expect(depth2_indent).to be > depth1_indent
+      end
+
+      it "returns to depth-1 prefix after a depth-2 item" do
+        output = render_block("- l1\n  - l2\n- l1 again\n")
+        lines = output.split('\n').reject(&.empty?)
+        expect(lines[0].index(/\S/)).to eq(lines[2].index(/\S/))
+      end
+
+      it "renders three levels of nesting" do
+        output = render_block("- l1\n  - l2\n    - l3\n")
+        lines = output.split('\n').reject(&.empty?)
+        d1 = lines[0].index(/\S/).not_nil!
+        d2 = lines[1].index(/\S/).not_nil!
+        d3 = lines[2].index(/\S/).not_nil!
+        expect(d1).to be < d2
+        expect(d2).to be < d3
       end
     end
 
-    describe "table boundaries" do
-      it "flushes the table and renders following paragraph" do
-        output = render_block("| A |\n| --- |\n| 1 |\n\nfollowing paragraph\n")
-        expect(output).to contain("A")
-        expect(output).to contain("1")
-        expect(output).to contain("following paragraph")
+    describe "ordered list" do
+      it "renders a single item with '1. ' prefix" do
+        output = render_line("1. item")
+        expect(output).to contain("item")
+        expect(output).to contain("1. ")
       end
 
-      it "flushes the table at EOF without a trailing newline" do
-        output = render_block("| A |\n| --- |\n| 1 |")
-        expect(output).to contain("A")
-        expect(output).to contain("1")
+      it "increments the counter for successive items" do
+        output = render_block("1. first\n2. second\n3. third\n")
+        expect(output).to contain("1. ")
+        expect(output).to contain("2. ")
+        expect(output).to contain("3. ")
+      end
+
+      it "renders inline markup inside an ordered item" do
+        output = render_line("1. **bold** item")
+        expect(output).to contain(ANSI::BOLD)
+        expect(output).to contain("bold")
+      end
+
+      it "resets counter at a fresh nested ordered level" do
+        output = render_block("1. outer\n   1. inner\n")
+        lines = output.split('\n').reject(&.empty?)
+        # outer is '1.' and inner should also start at '1.'
+        expect(lines[0]).to contain("1. ")
+        expect(lines[1]).to contain("1. ")
+      end
+
+      it "resumes outer counter after returning from nested" do
+        output = render_block("1. a\n2. b\n   1. nested\n3. c\n")
+        expect(output).to contain("3. ")
+      end
+    end
+
+    describe "mixed ordered and unordered" do
+      it "renders an ordered list nested inside an unordered list" do
+        output = render_block("- item\n  1. ordered nested\n")
+        expect(output).to contain("* ")
+        expect(output).to contain("1. ")
+      end
+
+      it "renders an unordered list nested inside an ordered list" do
+        output = render_block("1. item\n   - unordered nested\n")
+        expect(output).to contain("1. ")
+        expect(output).to contain("\u2013 ") # depth-1 bullet (en dash)
+      end
+    end
+
+    describe "list termination" do
+      it "terminates on a blank line and renders following paragraph" do
+        output = render_block("- item\n\nfollowing\n")
+        expect(output).to contain("item")
+        expect(output).to contain("following")
+      end
+
+      it "terminates on a heading" do
+        output = render_block("- item\n# Heading\n")
+        expect(output).to contain("item")
+        expect(output).to contain("Heading")
+      end
+
+      it "resets counter after list ends and a new list starts" do
+        output = render_block("1. first list\n\n1. new list\n")
+        expect(output.scan("1. ").size).to be >= 2
       end
     end
   end

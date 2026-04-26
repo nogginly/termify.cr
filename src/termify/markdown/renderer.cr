@@ -38,6 +38,7 @@ module Termify
       private UNORDERED_LIST  = /^\s*[-*+] (.*)/
       private ORDERED_LIST    = /^\s*\d+\. (.*)/
       private HORIZONTAL_RULE = /^\s*(-{3,}|\*{3,}|_{3,})\s*$/
+      private BULLETS         = ["*", "\u2013", "\u00b7"] # *, --, .
       private INLINE_HTML     = /<\/?[a-zA-Z][^>]*>/
       private BLOCK_HTML      = /^\s*<[^>]+>\s*$/
 
@@ -74,6 +75,7 @@ module Termify
         @fence_marker = ""
         @table_rows = [] of Array(String)
         @table_col_alignments = [] of TableRenderer::ColumnAlignment
+        @list_stack = [] of NamedTuple(indent: Int32, ordered: Bool, counter: Int32)
       end
 
       # Accepts the next chunk of Markdown. May be any size -- a single byte
@@ -118,6 +120,7 @@ module Termify
       private def process_line(line : String) : Nil
         return if process_fence_line(line)
         return if process_table_line(line)
+        exit_list unless list_line?(line)
         dispatch_block(line)
       end
 
@@ -183,6 +186,72 @@ module Termify
         @block_mode = BlockMode::Normal
       end
 
+      # Returns true if *line* is an unordered or ordered list item.
+      private def list_line?(line : String) : Bool
+        UNORDERED_LIST.matches?(line) || ORDERED_LIST.matches?(line)
+      end
+
+      # Clears the list nesting stack. Called on any non-list line.
+      # Note: blank lines also terminate lists (loose list support is deferred).
+      private def exit_list : Nil
+        @list_stack.clear
+      end
+
+      # Updates @list_stack and emits one list item with a depth-aware prefix.
+      # The stylesheet ListItem prefix is intentionally bypassed here -- depth
+      # and bullet/counter are computed dynamically from the stack.
+      private def process_list_item(line : String) : Nil
+        indent = line.size - line.lstrip.size
+        ordered = ORDERED_LIST.matches?(line)
+        content = if ordered
+                    line.match!(ORDERED_LIST)[1]
+                  else
+                    line.match!(UNORDERED_LIST)[1]
+                  end
+
+        if @list_stack.empty? || indent > @list_stack.last[:indent]
+          # New deeper level -- push a fresh entry.
+          @list_stack << {indent: indent, ordered: ordered, counter: ordered ? 1 : 0}
+        elsif indent < @list_stack.last[:indent]
+          # Returning to a shallower level -- pop until we match.
+          while @list_stack.size > 1 && @list_stack.last[:indent] > indent
+            @list_stack.pop
+          end
+          increment_counter if ordered
+        else
+          # Same level -- increment counter (no-op for unordered).
+          if ordered != @list_stack.last[:ordered]
+            # Type changed at same indent -- treat as a fresh level.
+            @list_stack.pop
+            @list_stack << {indent: indent, ordered: ordered, counter: ordered ? 1 : 0}
+          else
+            increment_counter if ordered
+          end
+        end
+
+        depth = @list_stack.size - 1
+        list_prefix = if ordered
+                        "  " * depth + @list_stack.last[:counter].to_s + ". "
+                      else
+                        "  " * depth + BULLETS[depth % BULLETS.size] + " "
+                      end
+        emit_list_item(content, list_prefix)
+      end
+
+      # Increments the counter on the top stack entry in place.
+      private def increment_counter : Nil
+        last = @list_stack.pop
+        @list_stack << {indent: last[:indent], ordered: last[:ordered], counter: last[:counter] + 1}
+      end
+
+      # Emits one list item using ListItem stylesheet style but a dynamic prefix.
+      private def emit_list_item(content : String, list_prefix : String) : Nil
+        style = @stylesheet[Element::ListItem]
+        ansi = style.to_ansi
+        reset = ansi.empty? ? "" : ANSI::RESET
+        @io << ansi << list_prefix << render_inline(content, style) << reset << (style.suffix || "") << '\n'
+      end
+
       private def fence_start?(line : String) : Bool
         line.starts_with?("```") || line.starts_with?("~~~")
       end
@@ -199,10 +268,8 @@ module Termify
           emit_styled(Element::Blockquote, line[1..])
         elsif horizontal_rule?(line)
           emit_styled(Element::HorizontalRule, line)
-        elsif m = line.match(UNORDERED_LIST)
-          emit_styled(Element::ListItem, m[1])
-        elsif m = line.match(ORDERED_LIST)
-          emit_styled(Element::ListItem, m[1])
+        elsif list_line?(line)
+          process_list_item(line)
         elsif BLOCK_HTML.matches?(line)
           emit_raw(Element::BlockHtml, line.strip)
         elsif line.empty?
