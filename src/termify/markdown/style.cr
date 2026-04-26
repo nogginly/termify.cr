@@ -10,7 +10,9 @@ module Termify
     #
     # Composition: `base.merge(override)` returns a new Style where override
     # wins for every attribute it sets, leaving the rest from base.
-    struct Style
+    #
+    # Equality: two Style instances are equal when all fields match (value semantics).
+    class Style
       getter? bold : Bool
       getter? italic : Bool
       getter? dim : Bool
@@ -78,7 +80,21 @@ module Termify
         )
       end
 
-      # Canonical zero-value — no styling applied.
+      # Value equality -- two Style instances are equal when all fields match.
+      def ==(other : Style) : Bool
+        @bold == other.bold? &&
+          @italic == other.italic? &&
+          @dim == other.dim? &&
+          @underline == other.underline? &&
+          @strikethrough == other.strikethrough? &&
+          @fg == other.fg &&
+          @bg == other.bg &&
+          @prefix == other.prefix &&
+          @suffix == other.suffix
+      end
+
+      # Canonical zero-value -- no styling applied. Immutable shared instance;
+      # safe to share because Style exposes no mutation methods.
       NONE = new
     end
   end
