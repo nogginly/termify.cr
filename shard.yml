@@ -15,5 +15,7 @@ dependencies:
     github: epoch/tallboy
 
 targets:
+  md2term:
+    main: samples/md2term.cr
   hello:
     main: samples/hello.cr
