@@ -158,7 +158,6 @@ ss = Termify::Markdown::Stylesheet.new({
   :code_inline => {fg: Termify::ANSI::FG_RED},
   :html_tag    => {dim: true},
   :block_html  => {dim: true},
-  :table       => {fg: Termify::ANSI::FG_DEFAULT},
   :block_quote => {prefix: "│ "},
 })
 

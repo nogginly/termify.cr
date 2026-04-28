@@ -11,8 +11,9 @@ development_dependencies:
     gitlab: arctic-fox/spectator
 
 dependencies:
-  tallboy:
-    github: epoch/tallboy
+  tablo:
+    github: hutou/tablo
+    version: 1.1.0
 
 targets:
   md2term:

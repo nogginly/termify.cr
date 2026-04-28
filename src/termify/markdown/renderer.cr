@@ -171,15 +171,15 @@ module Termify
         if TABLE_SEPARATOR.matches?(line)
           @table_col_alignments = cells.map do |cell|
             case cell
-            when .starts_with?(':') then TableRenderer::ColumnAlignment::Left
-            when .ends_with?(':')   then TableRenderer::ColumnAlignment::Right
-            else                         TableRenderer::ColumnAlignment::Middle
+            when .ends_with?(':') then TableRenderer::ColumnAlignment::Right
+            when .includes?(':')  then TableRenderer::ColumnAlignment::Middle
+            else                       TableRenderer::ColumnAlignment::Left
             end
           end
         else
           cells = cells.map do |cell|
             String.build do |io|
-              emit_styled(Element::Table, render_inline(cell, style), io)
+              emit_styled(Element::Table, render_inline(cell, style), io, chomp: true)
             end
           end
           @table_rows << cells
@@ -355,13 +355,14 @@ module Termify
         end
       end
 
-      private def emit_styled(element : Element, text : String, io = @io) : Nil
+      private def emit_styled(element : Element, text : String, io = @io, chomp = false) : Nil
         style = @stylesheet[element]
         ansi = style.to_ansi
         prefix = style.prefix || ""
         reset = ansi.empty? ? "" : ANSI::RESET
         list_indent = io.same?(@io) ? list_visual_indent : ""
-        io << ansi << list_indent << prefix << render_inline(text, style) << reset << style.suffix << '\n'
+        io << ansi << list_indent << prefix << render_inline(text, style) << reset << style.suffix
+        io << '\n' unless chomp
       end
 
       # Emits *text* verbatim -- no inline parsing. Used for code fence body
