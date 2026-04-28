@@ -147,7 +147,7 @@ module Termify
         STD_OUTPUT_HANDLE                  =    -11_i32
         ENABLE_VIRTUAL_TERMINAL_PROCESSING = 0x0004_u32
 
-        fun GetStdHandle(nStdHandle : DWORD) : HANDLE
+        fun GetStdHandle(nStdHandle : Int32) : HANDLE
         fun GetConsoleMode(hConsoleHandle : HANDLE, lpMode : UInt32*) : Int32
         fun SetConsoleMode(hConsoleHandle : HANDLE, dwMode : UInt32) : Int32
       end
