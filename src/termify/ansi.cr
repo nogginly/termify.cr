@@ -144,6 +144,8 @@ module Termify
     {% if flag?(:win32) %}
       @[Link("kernel32")]
       lib LibKernel32
+        alias HANDLE = Void*
+
         STD_OUTPUT_HANDLE                  =    -11_i32
         ENABLE_VIRTUAL_TERMINAL_PROCESSING = 0x0004_u32
 
