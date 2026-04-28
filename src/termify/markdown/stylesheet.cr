@@ -48,17 +48,7 @@ module Termify
         @inline_styles = {} of InlineElement => Style
         styles.each do |sym, opts|
           key = sym.to_s
-          sty = Style.new(
-            bold: opts["bold"]? || false,
-            italic: opts["italic"]? || false,
-            dim: opts["dim"]? || false,
-            underline: opts["underline"]? || false,
-            strikethrough: opts["strikethrough"]? || false,
-            fg: opts["fg"]? || nil,
-            bg: opts["bg"]? || nil,
-            prefix: opts["prefix"]? || nil,
-            suffix: opts["suffix"]? || nil,
-          )
+          sty = style_from(opts)
           if elem = BlockElement.parse?(key)
             @block_styles[elem] = sty
           elsif elem = InlineElement.parse?(key)
@@ -67,6 +57,21 @@ module Termify
             raise "Unknown element: #{sym}"
           end
         end
+      end
+
+      # Convert NamedTuple style options into a proper Style
+      private def style_from(opts : NamedTuple)
+        Style.new(
+          bold: opts["bold"]? || false,
+          italic: opts["italic"]? || false,
+          dim: opts["dim"]? || false,
+          underline: opts["underline"]? || false,
+          strikethrough: opts["strikethrough"]? || false,
+          fg: opts["fg"]? || nil,
+          bg: opts["bg"]? || nil,
+          prefix: opts["prefix"]? || nil,
+          suffix: opts["suffix"]? || nil,
+        )
       end
 
       # Look up the style for a block element; returns Style::NONE if not mapped.
