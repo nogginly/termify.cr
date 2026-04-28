@@ -11,7 +11,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ ubuntu-latest, macos-latest ]
+        os: [ ubuntu-latest, macos-latest, windows-latest, macos-15-intel ]
 
     runs-on: ${{ matrix.os }}
 
@@ -69,3 +69,19 @@ jobs:
       - name: Run Sample `md2term`
         if: ${{ runner.os != 'Windows' }}
         run: "bin/release/md2term 2>&1 | grep \"Usage: md2term\""
+
+      # Ah, Windows.
+      - name: Setup release environment (Windows)
+        if: ${{ runner.os == 'Windows' }}
+        shell: powershell
+        run: |
+          mkdir bin -ErrorAction SilentlyContinue
+          mkdir bin\release -ErrorAction SilentlyContinue
+
+      - name: Build Release (Windows)
+        if: ${{ runner.os == 'Windows' }}
+        shell: powershell
+        env:
+          SHARDS_BIN_PATH: "bin/release"
+        run: |
+          shards build --release
