@@ -49,11 +49,28 @@ module Termify
             strip_escaped_codes(row[i]) || ""
           end
         end
-        table.pack(80, autosize: true)
-        prefix = indent > 0 ? " " * indent : ""
-        table.to_s.each_line(chomp: false) do |line|
-          io << prefix << line
+        # Pack to min size first so we can check the width
+        table.pack(autosize: true)
+        # If it's really wide and not indented, re-pack to terminal width
+        # Else if it's wider than 80, repack to 80
+        # Else OK
+        if table.total_table_width > 100 && indent == 0
+          Tablo::Config.terminal_capped_width = true
+          table.pack(autosize: true)
+          Tablo::Config.terminal_capped_width = false
+        elsif table.total_table_width > 80
+          table.pack(80, autosize: true)
         end
+        # Handle indent by prefixing each line of table render
+        if indent > 0
+          prefix = " " * indent
+          table.to_s.each_line(chomp: false) do |line|
+            io << prefix << line
+          end
+        else
+          io << table
+        end
+        io.puts
       end
     end
   end
