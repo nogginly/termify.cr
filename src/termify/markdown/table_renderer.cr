@@ -35,9 +35,13 @@ module Termify
         max_cols = rows.max_of(&.size)
         header_cells = rows.first
 
+        # Hard-coding border color; make this configurable for Table style
+        # when we get the style system refactored
+        border = Tablo::Border.new(:fancy,
+          styler: ->(border_chars : String) { border_chars.colorize(:dark_gray).to_s })
+
         # Tablo doesn't work with escape codes; so we strip it out.
-        table = Tablo::Table.new(rows[1..-1],
-          border: Tablo::Border.new(:fancy),
+        table = Tablo::Table.new(rows[1..-1], border: border,
           row_divider_frequency: 1,
           header_styler: ->(content : String) { content.colorize.bold.to_s })
         max_cols.times do |i|
