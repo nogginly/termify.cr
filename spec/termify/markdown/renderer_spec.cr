@@ -826,6 +826,26 @@ Spectator.describe Termify::Markdown::Renderer do
         expect(output).to contain("   code here")
       end
 
+      it "detects the closing fence and does not emit it as a code body line" do
+        output = render_block("1. item\n\n   ```\n   code here\n   ```\n")
+        # closing ``` must not appear in output
+        expect(output).to_not contain("```")
+      end
+
+      it "renders a list item after a fenced code block continuation" do
+        output = render_block("1. first\n\n   ```\n   code\n   ```\n\n2. second\n")
+        expect(output).to contain("code")
+        expect(output).to contain("2. ")
+        expect(output).to_not contain("```")
+      end
+
+      it "renders a paragraph after a fenced code block continuation" do
+        output = render_block("1. item\n\n   ```\n   code\n   ```\n\nfollowing paragraph\n")
+        expect(output).to contain("code")
+        expect(output).to contain("following paragraph")
+        expect(output).to_not contain("```")
+      end
+
       it "renders an indented table as part of the same list item" do
         output = render_block("1. item\n\n   A | B\n   --|--\n   1 | 2\n")
         expect(output).to contain("item")

@@ -2,8 +2,8 @@ require "../ansi"
 
 module Termify
   module Markdown
-    # Identifies every markdown element the renderer recognises.
-    enum Element
+    # Block-level markdown elements. Styled via BlockStyle entries in Stylesheet.
+    enum BlockElement
       H1
       H2
       H3
@@ -13,29 +13,41 @@ module Termify
       Paragraph
       Blockquote
       CodeBlock
-      CodeInline
-      Bold
-      Italic
-      Strikethrough
-      Link
       ListItem
       HorizontalRule
-      HtmlTag
       BlockHtml
       Table
     end
 
-    # Maps Element → Style.  Missing entries fall back to Style::NONE.
-    # Immutable after construction except via #[]=; use .default for the
-    # built-in theme, or start from Stylesheet.new for a blank slate.
+    # Inline markdown elements. Styled via Style entries in Stylesheet.
+    enum InlineElement
+      Bold
+      Italic
+      Strikethrough
+      CodeInline
+      Link
+      HtmlTag
+    end
+
+    # Maps block and inline elements to their styles independently.
+    # Missing entries fall back to Style::NONE.
+    # Use .default for the built-in theme, or .new for a blank slate.
     class Stylesheet
-      def initialize(@styles : Hash(Element, Style) = {} of Element => Style)
+      def initialize(
+        block_styles : Hash(BlockElement, Style) = {} of BlockElement => Style,
+        inline_styles : Hash(InlineElement, Style) = {} of InlineElement => Style,
+      )
+        @block_styles = block_styles
+        @inline_styles = inline_styles
       end
 
+      # Symbol constructor -- maps {:h1 => {bold: true}, :bold => {bold: true}}
+      # to the correct enum automatically. Raises for unknown symbols.
       def initialize(styles : Hash(Symbol, NamedTuple))
-        @styles = {} of Element => Style
+        @block_styles = {} of BlockElement => Style
+        @inline_styles = {} of InlineElement => Style
         styles.each do |sym, opts|
-          elem = Element.parse(sym.to_s)
+          key = sym.to_s
           sty = Style.new(
             bold: opts["bold"]? || false,
             italic: opts["italic"]? || false,
@@ -47,48 +59,63 @@ module Termify
             prefix: opts["prefix"]? || nil,
             suffix: opts["suffix"]? || nil,
           )
-          @styles[elem] = sty
+          if elem = BlockElement.parse?(key)
+            @block_styles[elem] = sty
+          elsif elem = InlineElement.parse?(key)
+            @inline_styles[elem] = sty
+          else
+            raise "Unknown element: #{sym}"
+          end
         end
       end
 
-      # Look up the style for *element*; returns Style::NONE if not mapped.
-      def [](element : Element) : Style
-        @styles.fetch(element, Style::NONE)
+      # Look up the style for a block element; returns Style::NONE if not mapped.
+      def [](element : BlockElement) : Style
+        @block_styles.fetch(element, Style::NONE)
       end
 
-      # Override a single entry (for user customisation).
-      def []=(element : Element, style : Style) : Style
-        @styles[element] = style
+      # Look up the style for an inline element; returns Style::NONE if not mapped.
+      def [](element : InlineElement) : Style
+        @inline_styles.fetch(element, Style::NONE)
+      end
+
+      # Override a single block element entry.
+      def []=(element : BlockElement, style : Style) : Style
+        @block_styles[element] = style
+      end
+
+      # Override a single inline element entry.
+      def []=(element : InlineElement, style : Style) : Style
+        @inline_styles[element] = style
       end
 
       # Returns a new Stylesheet with the default built-in theme applied.
       def self.default : Stylesheet
-        new({
-          # ── headings — bold + colour hierarchy, no literal prefix ───────
-          Element::H1 => Style.new(bold: true, underline: true, fg: ANSI::FG_BRIGHT_WHITE, prefix: "# ", suffix: "\n"),
-          Element::H2 => Style.new(bold: true, underline: true, fg: ANSI::FG_BRIGHT_WHITE),
-          Element::H3 => Style.new(bold: true, underline: true, fg: ANSI::FG_WHITE),
-          Element::H4 => Style.new(bold: true, underline: true, dim: true),
-          Element::H5 => Style.new(italic: true, underline: true, dim: true),
-          Element::H6 => Style.new(dim: true, underline: true),
-
-          # ── block elements ───────────────────────────────────────────────
-          Element::Paragraph      => Style::NONE,
-          Element::Blockquote     => Style.new(prefix: "| "),
-          Element::CodeBlock      => Style.new(fg: ANSI::FG_BRIGHT_WHITE, bg: ANSI::BG_BRIGHT_BLACK),
-          Element::HorizontalRule => Style.new(dim: true),
-          Element::ListItem       => Style.new(prefix: "* "),
-
-          # ── inline elements ──────────────────────────────────────────────
-          Element::CodeInline    => Style.new(fg: ANSI::FG_CYAN),
-          Element::Bold          => Style.new(bold: true),
-          Element::Italic        => Style.new(italic: true),
-          Element::Strikethrough => Style.new(strikethrough: true),
-          Element::Link          => Style.new(underline: true, fg: ANSI::FG_BRIGHT_BLUE),
-          Element::HtmlTag       => Style.new(fg: ANSI::FG_RED),
-          Element::BlockHtml     => Style.new(fg: ANSI::FG_RED),
-          Element::Table         => Style::NONE,
-        } of Element => Style)
+        new(
+          block_styles: {
+            BlockElement::H1             => Style.new(bold: true, underline: true, fg: ANSI::FG_BRIGHT_WHITE, prefix: "# ", suffix: "\n"),
+            BlockElement::H2             => Style.new(bold: true, underline: true, fg: ANSI::FG_BRIGHT_WHITE),
+            BlockElement::H3             => Style.new(bold: true, underline: true, fg: ANSI::FG_WHITE),
+            BlockElement::H4             => Style.new(bold: true, underline: true, dim: true),
+            BlockElement::H5             => Style.new(italic: true, underline: true, dim: true),
+            BlockElement::H6             => Style.new(dim: true, underline: true),
+            BlockElement::Paragraph      => Style::NONE,
+            BlockElement::Blockquote     => Style.new(prefix: "| "),
+            BlockElement::CodeBlock      => Style.new(fg: ANSI::FG_BRIGHT_WHITE, bg: ANSI::BG_BRIGHT_BLACK),
+            BlockElement::HorizontalRule => Style.new(dim: true),
+            BlockElement::ListItem       => Style.new(prefix: "* "),
+            BlockElement::BlockHtml      => Style.new(fg: ANSI::FG_RED),
+            BlockElement::Table          => Style::NONE,
+          } of BlockElement => Style,
+          inline_styles: {
+            InlineElement::Bold          => Style.new(bold: true),
+            InlineElement::Italic        => Style.new(italic: true),
+            InlineElement::Strikethrough => Style.new(strikethrough: true),
+            InlineElement::CodeInline    => Style.new(fg: ANSI::FG_CYAN),
+            InlineElement::Link          => Style.new(underline: true, fg: ANSI::FG_BRIGHT_BLUE),
+            InlineElement::HtmlTag       => Style.new(fg: ANSI::FG_RED),
+          } of InlineElement => Style,
+        )
       end
     end
   end

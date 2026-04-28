@@ -1,14 +1,20 @@
 require "../../spec_helper"
 
 Spectator.describe Termify::Markdown::Stylesheet do
-  # ── Element enum ────────────────────────────────────────────────────────────
+  # ── Element enums ───────────────────────────────────────────────────────────
 
-  describe Termify::Markdown::Element do
-    it "defines all expected members" do
+  describe Termify::Markdown::BlockElement do
+    it "defines all expected block members" do
       expected = %w[h1 h2 h3 h4 h5 h6 paragraph blockquote codeblock
-        codeinline bold italic strikethrough link listitem
-        horizontalrule htmltag blockhtml table]
-      expect(Termify::Markdown::Element.names.map(&.downcase)).to eq(expected)
+        listitem horizontalrule blockhtml table]
+      expect(Termify::Markdown::BlockElement.names.map(&.downcase)).to eq(expected)
+    end
+  end
+
+  describe Termify::Markdown::InlineElement do
+    it "defines all expected inline members" do
+      expected = %w[bold italic strikethrough codeinline link htmltag]
+      expect(Termify::Markdown::InlineElement.names.map(&.downcase)).to eq(expected)
     end
   end
 
@@ -17,8 +23,8 @@ Spectator.describe Termify::Markdown::Stylesheet do
   describe ".new (blank)" do
     it "returns Style::NONE for any unmapped element" do
       sheet = Termify::Markdown::Stylesheet.new
-      expect(sheet[Termify::Markdown::Element::H1]).to eq(Termify::Markdown::Style::NONE)
-      expect(sheet[Termify::Markdown::Element::Bold]).to eq(Termify::Markdown::Style::NONE)
+      expect(sheet[Termify::Markdown::BlockElement::H1]).to eq(Termify::Markdown::Style::NONE)
+      expect(sheet[Termify::Markdown::InlineElement::Bold]).to eq(Termify::Markdown::Style::NONE)
     end
   end
 
@@ -28,24 +34,24 @@ Spectator.describe Termify::Markdown::Stylesheet do
     it "stores and retrieves a style" do
       sheet = Termify::Markdown::Stylesheet.new
       custom = Termify::Markdown::Style.new(bold: true, fg: Termify::ANSI::FG_RED)
-      sheet[Termify::Markdown::Element::H1] = custom
-      expect(sheet[Termify::Markdown::Element::H1].bold?).to be_true
-      expect(sheet[Termify::Markdown::Element::H1].fg).to eq(Termify::ANSI::FG_RED)
+      sheet[Termify::Markdown::BlockElement::H1] = custom
+      expect(sheet[Termify::Markdown::BlockElement::H1].bold?).to be_true
+      expect(sheet[Termify::Markdown::BlockElement::H1].fg).to eq(Termify::ANSI::FG_RED)
     end
 
     it "overwriting an entry replaces the previous style" do
       sheet = Termify::Markdown::Stylesheet.new
-      sheet[Termify::Markdown::Element::Bold] = Termify::Markdown::Style.new(bold: true)
-      sheet[Termify::Markdown::Element::Bold] = Termify::Markdown::Style.new(italic: true)
-      result = sheet[Termify::Markdown::Element::Bold]
+      sheet[Termify::Markdown::InlineElement::Bold] = Termify::Markdown::Style.new(bold: true)
+      sheet[Termify::Markdown::InlineElement::Bold] = Termify::Markdown::Style.new(italic: true)
+      result = sheet[Termify::Markdown::InlineElement::Bold]
       expect(result.bold?).to be_false
       expect(result.italic?).to be_true
     end
 
     it "does not affect other elements" do
       sheet = Termify::Markdown::Stylesheet.new
-      sheet[Termify::Markdown::Element::H1] = Termify::Markdown::Style.new(bold: true)
-      expect(sheet[Termify::Markdown::Element::H2]).to eq(Termify::Markdown::Style::NONE)
+      sheet[Termify::Markdown::BlockElement::H1] = Termify::Markdown::Style.new(bold: true)
+      expect(sheet[Termify::Markdown::BlockElement::H2]).to eq(Termify::Markdown::Style::NONE)
     end
   end
 
@@ -59,147 +65,87 @@ Spectator.describe Termify::Markdown::Stylesheet do
     end
 
     it "H1 is bold and underlined" do
-      s = sheet[Termify::Markdown::Element::H1]
+      s = sheet[Termify::Markdown::BlockElement::H1]
       expect(s.bold?).to be_true
       expect(s.underline?).to be_true
     end
 
     it "H1 has a foreground colour set" do
-      expect(sheet[Termify::Markdown::Element::H1].fg).not_to be_nil
+      expect(sheet[Termify::Markdown::BlockElement::H1].fg).not_to be_nil
     end
 
     it "H2 is bold and underlined" do
-      s = sheet[Termify::Markdown::Element::H2]
+      s = sheet[Termify::Markdown::BlockElement::H2]
       expect(s.bold?).to be_true
       expect(s.underline?).to be_true
     end
 
     it "heading boldness decreases — H4 is dim" do
-      expect(sheet[Termify::Markdown::Element::H4].dim?).to be_true
+      expect(sheet[Termify::Markdown::BlockElement::H4].dim?).to be_true
     end
 
     it "H6 is dim and not bold" do
-      s = sheet[Termify::Markdown::Element::H6]
+      s = sheet[Termify::Markdown::BlockElement::H6]
       expect(s.dim?).to be_true
       expect(s.bold?).to be_false
     end
 
     it "Paragraph maps to Style::NONE" do
-      expect(sheet[Termify::Markdown::Element::Paragraph])
+      expect(sheet[Termify::Markdown::BlockElement::Paragraph])
         .to eq(Termify::Markdown::Style::NONE)
     end
 
     it "Blockquote has a prefix" do
-      expect(sheet[Termify::Markdown::Element::Blockquote].prefix).not_to be_nil
+      expect(sheet[Termify::Markdown::BlockElement::Blockquote].prefix).not_to be_nil
     end
 
     it "CodeBlock has fg and bg set" do
-      s = sheet[Termify::Markdown::Element::CodeBlock]
+      s = sheet[Termify::Markdown::BlockElement::CodeBlock]
       expect(s.fg).not_to be_nil
       expect(s.bg).not_to be_nil
     end
 
     it "CodeInline has a fg colour" do
-      expect(sheet[Termify::Markdown::Element::CodeInline].fg).not_to be_nil
+      expect(sheet[Termify::Markdown::InlineElement::CodeInline].fg).not_to be_nil
     end
 
     it "Bold style is bold" do
-      expect(sheet[Termify::Markdown::Element::Bold].bold?).to be_true
+      expect(sheet[Termify::Markdown::InlineElement::Bold].bold?).to be_true
     end
 
     it "Italic style is italic" do
-      expect(sheet[Termify::Markdown::Element::Italic].italic?).to be_true
+      expect(sheet[Termify::Markdown::InlineElement::Italic].italic?).to be_true
     end
 
     it "Strikethrough style has strikethrough" do
-      expect(sheet[Termify::Markdown::Element::Strikethrough].strikethrough?).to be_true
+      expect(sheet[Termify::Markdown::InlineElement::Strikethrough].strikethrough?).to be_true
     end
 
     it "Link is underlined with a fg colour" do
-      s = sheet[Termify::Markdown::Element::Link]
+      s = sheet[Termify::Markdown::InlineElement::Link]
       expect(s.underline?).to be_true
       expect(s.fg).not_to be_nil
     end
 
     it "ListItem has a prefix" do
-      expect(sheet[Termify::Markdown::Element::ListItem].prefix).not_to be_nil
+      expect(sheet[Termify::Markdown::BlockElement::ListItem].prefix).not_to be_nil
     end
 
     it "HtmlTag has a fg colour" do
-      s = sheet[Termify::Markdown::Element::HtmlTag]
+      s = sheet[Termify::Markdown::InlineElement::HtmlTag]
       expect(s.fg).not_to be_nil
     end
 
     it "BlockHtml has a fg colour" do
-      s = sheet[Termify::Markdown::Element::BlockHtml]
+      s = sheet[Termify::Markdown::BlockElement::BlockHtml]
       expect(s.fg).not_to be_nil
     end
 
     it "each call to .default returns an independent instance" do
       s1 = Termify::Markdown::Stylesheet.default
       s2 = Termify::Markdown::Stylesheet.default
-      s1[Termify::Markdown::Element::Bold] = Termify::Markdown::Style::NONE
-      expect(s2[Termify::Markdown::Element::Bold].bold?).to be_true
-    end
-  end
-
-  # ── .new (symbol constructor) ────────────────────────────────────────────────
-
-  describe ".new (symbol constructor)" do
-    it "maps a symbol key to the correct Element" do
-      sheet = Termify::Markdown::Stylesheet.new({:bold => {bold: true}})
-      expect(sheet[Termify::Markdown::Element::Bold].bold?).to be_true
-    end
-
-    it "sets fg from the named tuple" do
-      sheet = Termify::Markdown::Stylesheet.new({:paragraph => {fg: Termify::ANSI::FG_CYAN}})
-      expect(sheet[Termify::Markdown::Element::Paragraph].fg).to eq(Termify::ANSI::FG_CYAN)
-    end
-
-    it "sets bg from the named tuple" do
-      sheet = Termify::Markdown::Stylesheet.new({:code_block => {bg: Termify::ANSI::BG_BLACK}})
-      expect(sheet[Termify::Markdown::Element::CodeBlock].bg).to eq(Termify::ANSI::BG_BLACK)
-    end
-
-    it "sets prefix from the named tuple" do
-      sheet = Termify::Markdown::Stylesheet.new({:blockquote => {prefix: "> "}})
-      expect(sheet[Termify::Markdown::Element::Blockquote].prefix).to eq("> ")
-    end
-
-    it "sets suffix from the named tuple" do
-      sheet = Termify::Markdown::Stylesheet.new({:h1 => {suffix: "\n"}})
-      expect(sheet[Termify::Markdown::Element::H1].suffix).to eq("\n")
-    end
-
-    it "defaults missing bool keys to false" do
-      sheet = Termify::Markdown::Stylesheet.new({:bold => {fg: Termify::ANSI::FG_RED}})
-      expect(sheet[Termify::Markdown::Element::Bold].bold?).to be_false
-    end
-
-    it "defaults missing fg/bg to nil" do
-      sheet = Termify::Markdown::Stylesheet.new({:bold => {bold: true}})
-      expect(sheet[Termify::Markdown::Element::Bold].fg).to be_nil
-      expect(sheet[Termify::Markdown::Element::Bold].bg).to be_nil
-    end
-
-    it "accepts multiple entries" do
-      sheet = Termify::Markdown::Stylesheet.new({
-        :bold   => {bold: true},
-        :italic => {italic: true},
-      })
-      expect(sheet[Termify::Markdown::Element::Bold].bold?).to be_true
-      expect(sheet[Termify::Markdown::Element::Italic].italic?).to be_true
-    end
-
-    it "raises for an unknown symbol key" do
-      expect_raises(Exception) do
-        Termify::Markdown::Stylesheet.new({:unknown_element => {bold: true}})
-      end
-    end
-
-    it "returns Style::NONE for unmapped elements" do
-      sheet = Termify::Markdown::Stylesheet.new({:bold => {bold: true}})
-      expect(sheet[Termify::Markdown::Element::Italic]).to eq(Termify::Markdown::Style::NONE)
+      s1[Termify::Markdown::InlineElement::Bold] = Termify::Markdown::Style::NONE
+      expect(s2[Termify::Markdown::InlineElement::Bold].bold?).to be_true
     end
   end
 end

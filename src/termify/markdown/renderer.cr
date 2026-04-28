@@ -122,12 +122,12 @@ module Termify
         return if process_fence_line(line)
         unless @list_stack.empty?
           return if handle_list_line(line)
-          # handle_list_line returned false: list was exited, dispatch normally
         end
         return if process_table_line(line)
         dispatch_block(line)
       end
 
+      # Handles a line while in CodeFence mode. Returns true if consumed.
       # Handles a line while in CodeFence mode. Returns true if consumed.
       # When inside a list, strips the item's content indent before checking
       # the fence marker so indented fences work correctly.
@@ -137,7 +137,7 @@ module Termify
         if stripped.starts_with?(@fence_marker)
           @block_mode = BlockMode::Normal
         else
-          emit_raw(Element::CodeBlock, stripped)
+          emit_raw(BlockElement::CodeBlock, stripped)
         end
         true
       end
@@ -147,7 +147,7 @@ module Termify
       private def process_table_line(line : String) : Bool
         if @block_mode.table?
           if TABLE_ROW.matches?(line)
-            buffer_table_row(line, @stylesheet[Element::Table])
+            buffer_table_row(line, @stylesheet[BlockElement::Table])
             return true
           else
             flush_table
@@ -155,7 +155,7 @@ module Termify
           end
         elsif TABLE_ROW.matches?(line)
           @block_mode = BlockMode::Table
-          buffer_table_row(line, @stylesheet[Element::Table])
+          buffer_table_row(line, @stylesheet[BlockElement::Table])
           return true
         end
         false
@@ -179,151 +179,23 @@ module Termify
         else
           cells = cells.map do |cell|
             String.build do |io|
-              emit_styled(Element::Table, render_inline(cell, style), io, chomp: true)
+              emit_styled(BlockElement::Table, render_inline(cell, style), io, chomp: true)
             end
           end
           @table_rows << cells
         end
       end
 
+      # Renders buffered rows via TableRenderer and resets table state.
       # Returns leading spaces matching current list content indent, or "".
       private def list_visual_indent : String
         @list_stack.empty? ? "" : " " * @list_stack.last[:content_indent]
       end
 
-      # Renders buffered rows via TableRenderer and resets table state.
       private def flush_table : Nil
-        indent = @list_stack.empty? ? 0 : @list_stack.last[:content_indent]
-        TableRenderer.render(@table_rows, @table_col_alignments, @io, indent) unless @table_rows.empty?
+        TableRenderer.render(@table_rows, @table_col_alignments, @io) unless @table_rows.empty?
         @table_rows.clear
-        @table_col_alignments.clear
         @block_mode = BlockMode::Normal
-      end
-
-      # Returns true if *line* is an unordered or ordered list item.
-      private def list_line?(line : String) : Bool
-        UNORDERED_LIST.matches?(line) || ORDERED_LIST.matches?(line)
-      end
-
-      # Clears list nesting state. Called on any non-continuation, non-list line.
-      # Blank lines within a list item are swallowed (loose list termination deferred).
-      private def exit_list : Nil
-        @list_stack.clear
-        @list_pending_blank = false
-      end
-
-      # Handles a line while a list is active. Returns true if the line was
-      # consumed; false if the list was exited and the line needs normal dispatch.
-      #
-      # Blank lines are swallowed (set @list_pending_blank) rather than terminating
-      # the list immediately, to support continuation blocks. The list exits only
-      # when a non-blank, non-continuation, non-list line appears.
-      private def handle_list_line(line : String) : Bool
-        if line.empty?
-          @list_pending_blank = true
-          return true
-        end
-
-        pending = @list_pending_blank
-        @list_pending_blank = false
-        content_indent = @list_stack.last[:content_indent]
-
-        if list_line?(line)
-          flush_table if @block_mode.table?
-          process_list_item(line)
-          true
-        elsif list_continuation?(line, content_indent)
-          dispatch_continuation(strip_list_indent(line, content_indent))
-          true
-        else
-          flush_table if @block_mode.table?
-          exit_list
-          @io << '\n' if pending
-          false
-        end
-      end
-
-      # Returns true if *line* has enough leading whitespace to be a continuation
-      # block of the current list item (i.e. leading spaces >= content_indent).
-      private def list_continuation?(line : String, content_indent : Int32) : Bool
-        (line.size - line.lstrip.size) >= content_indent
-      end
-
-      # Strips exactly *n* leading characters from *line*.
-      # Safe: if *line* is shorter than *n*, strips all leading whitespace instead.
-      private def strip_list_indent(line : String, n : Int32) : String
-        line.size >= n ? line[n..] : line.lstrip
-      end
-
-      # Dispatches a continuation line (already de-indented) through the normal
-      # table and block pipeline, bypassing the list check.
-      private def dispatch_continuation(line : String) : Nil
-        return if process_table_line(line)
-        dispatch_block(line)
-      end
-
-      # Updates @list_stack and emits one list item with a depth-aware prefix.
-      # The stylesheet ListItem prefix is intentionally bypassed here -- depth
-      # and bullet/counter are computed dynamically from the stack.
-      private def process_list_item(line : String) : Nil
-        indent, ordered, content, content_indent = parse_list_line(line)
-        update_list_stack(indent, ordered, content_indent)
-        emit_list_item(content, list_item_prefix(ordered))
-      end
-
-      # Parses indent, type, content text, and content column from a list line.
-      private def parse_list_line(line : String) : {Int32, Bool, String, Int32}
-        indent = line.size - line.lstrip.size
-        ordered = ORDERED_LIST.matches?(line)
-        content = ordered ? line.match!(ORDERED_LIST)[1] : line.match!(UNORDERED_LIST)[1]
-        {indent, ordered, content, line.size - content.size}
-      end
-
-      # Updates the list nesting stack for a new item at *indent*.
-      private def update_list_stack(indent : Int32, ordered : Bool, content_indent : Int32) : Nil
-        if @list_stack.empty? || indent > @list_stack.last[:indent]
-          push_list_level(indent, ordered, content_indent)
-        elsif indent < @list_stack.last[:indent]
-          while @list_stack.size > 1 && @list_stack.last[:indent] > indent
-            @list_stack.pop
-          end
-          increment_counter(content_indent) if ordered
-        elsif ordered != @list_stack.last[:ordered]
-          # Type changed at same indent -- treat as a fresh level.
-          @list_stack.pop
-          push_list_level(indent, ordered, content_indent)
-        else
-          increment_counter(content_indent) if ordered
-        end
-      end
-
-      # Pushes a new level onto the list stack.
-      private def push_list_level(indent : Int32, ordered : Bool, content_indent : Int32) : Nil
-        @list_stack << {indent: indent, ordered: ordered, counter: ordered ? 1 : 0, content_indent: content_indent}
-      end
-
-      # Returns the prefix string for the current list depth and type.
-      private def list_item_prefix(ordered : Bool) : String
-        depth = @list_stack.size - 1
-        if ordered
-          "  " * depth + @list_stack.last[:counter].to_s + ". "
-        else
-          "  " * depth + BULLETS[depth % BULLETS.size] + " "
-        end
-      end
-
-      # Increments the counter on the top stack entry, preserving all other fields.
-      private def increment_counter(content_indent : Int32) : Nil
-        last = @list_stack.pop
-        @list_stack << {indent: last[:indent], ordered: last[:ordered], counter: last[:counter] + 1, content_indent: content_indent}
-      end
-
-      # Emits one list item using ListItem stylesheet style but a dynamic prefix.
-      private def emit_list_item(content : String, list_prefix : String) : Nil
-        style = @stylesheet[Element::ListItem]
-        ansi = style.to_ansi
-        reset = ansi.empty? ? "" : ANSI::RESET
-        @io << ansi << list_prefix << render_inline(content, style) << reset << (style.suffix || "") << '\n'
       end
 
       private def fence_start?(line : String) : Bool
@@ -339,23 +211,23 @@ module Termify
           @fence_marker = line.lstrip[0, 3]
           @block_mode = BlockMode::CodeFence
         elsif line.starts_with?("> ")
-          emit_styled(Element::Blockquote, line[2..])
+          emit_styled(BlockElement::Blockquote, line[2..])
         elsif line.starts_with?(">")
-          emit_styled(Element::Blockquote, line[1..])
+          emit_styled(BlockElement::Blockquote, line[1..])
         elsif horizontal_rule?(line)
-          emit_styled(Element::HorizontalRule, line)
+          emit_styled(BlockElement::HorizontalRule, line)
         elsif list_line?(line)
           process_list_item(line)
         elsif BLOCK_HTML.matches?(line)
-          emit_raw(Element::BlockHtml, line.strip)
+          emit_raw(BlockElement::BlockHtml, line.strip)
         elsif line.empty?
           @io << '\n'
         else
-          emit_styled(Element::Paragraph, line)
+          emit_styled(BlockElement::Paragraph, line)
         end
       end
 
-      private def emit_styled(element : Element, text : String, io = @io, chomp = false) : Nil
+      private def emit_styled(element : BlockElement, text : String, io = @io, chomp = false) : Nil
         style = @stylesheet[element]
         ansi = style.to_ansi
         prefix = style.prefix || ""
@@ -367,7 +239,7 @@ module Termify
 
       # Emits *text* verbatim -- no inline parsing. Used for code fence body
       # lines where delimiters are content, not markup.
-      private def emit_raw(element : Element, text : String) : Nil
+      private def emit_raw(element : BlockElement, text : String) : Nil
         style = @stylesheet[element]
         ansi = style.to_ansi
         prefix = style.prefix || ""
@@ -385,7 +257,7 @@ module Termify
       #   _text_    -- Italic (mid-word underscores emitted as literals)
       private def render_inline(text : String, block_style : Style) : String
         buf = String::Builder.new
-        inline_stack = [] of {Element, String}
+        inline_stack = [] of {InlineElement, String}
         chars = text.chars
         i = 0
         n = chars.size
@@ -411,10 +283,10 @@ module Termify
 
       private def scan_code_span(
         chars : Array(Char), i : Int32, buf : String::Builder,
-        block_style : Style, inline_stack : Array({Element, String}),
+        block_style : Style, inline_stack : Array({InlineElement, String}),
       ) : Int32
         if j = find_char(chars, '`', i + 1)
-          buf << @stylesheet[Element::CodeInline].to_ansi
+          buf << @stylesheet[InlineElement::CodeInline].to_ansi
           buf << chars[i + 1...j].join
           buf << replay_sequence(block_style, inline_stack)
           j + 1
@@ -427,11 +299,11 @@ module Termify
       # Inline HTML tag -- emitted verbatim in HtmlTag style.
       private def scan_html_tag(
         chars : Array(Char), i : Int32, buf : String::Builder,
-        block_style : Style, inline_stack : Array({Element, String}),
+        block_style : Style, inline_stack : Array({InlineElement, String}),
       ) : Int32
         if m = chars[i..].join.match(INLINE_HTML)
           tag = m[0]
-          buf << @stylesheet[Element::HtmlTag].to_ansi
+          buf << @stylesheet[InlineElement::HtmlTag].to_ansi
           buf << tag
           buf << replay_sequence(block_style, inline_stack)
           i + tag.size
@@ -444,13 +316,13 @@ module Termify
       # Link span [text](url) -- URL suppressed; link text re-enters render_inline.
       private def scan_link(
         chars : Array(Char), i : Int32, buf : String::Builder,
-        block_style : Style, inline_stack : Array({Element, String}),
+        block_style : Style, inline_stack : Array({InlineElement, String}),
       ) : Int32
         if close_bracket = find_char(chars, ']', i + 1)
           if chars[close_bracket + 1]? == '(' &&
              (close_paren = find_char(chars, ')', close_bracket + 2))
             link_text = chars[i + 1...close_bracket].join
-            link_style = @stylesheet[Element::Link]
+            link_style = @stylesheet[InlineElement::Link]
             buf << link_style.to_ansi
             buf << render_inline(link_text, link_style)
             buf << replay_sequence(block_style, inline_stack)
@@ -468,27 +340,27 @@ module Termify
       # "*" -- bold (**) or italic (*), determined by whether next char is also "*".
       private def scan_star(
         chars : Array(Char), i : Int32, n : Int32, buf : String::Builder,
-        block_style : Style, inline_stack : Array({Element, String}),
+        block_style : Style, inline_stack : Array({InlineElement, String}),
       ) : Int32
         if i + 1 < n && chars[i + 1] == '*'
-          if inline_stack.any? { |entry| entry[0] == Element::Bold }
-            pop_inline(Element::Bold, inline_stack)
+          if inline_stack.any? { |entry| entry[0] == InlineElement::Bold }
+            pop_inline(InlineElement::Bold, inline_stack)
             buf << replay_sequence(block_style, inline_stack)
           elsif find_two_chars(chars, '*', i + 2)
-            seq = @stylesheet[Element::Bold].to_ansi
-            inline_stack << {Element::Bold, seq}
+            seq = @stylesheet[InlineElement::Bold].to_ansi
+            inline_stack << {InlineElement::Bold, seq}
             buf << seq
           else
             buf << "**"
           end
           i + 2
         else
-          if inline_stack.any? { |entry| entry[0] == Element::Italic }
-            pop_inline(Element::Italic, inline_stack)
+          if inline_stack.any? { |entry| entry[0] == InlineElement::Italic }
+            pop_inline(InlineElement::Italic, inline_stack)
             buf << replay_sequence(block_style, inline_stack)
           elsif find_single_star(chars, i + 1)
-            seq = @stylesheet[Element::Italic].to_ansi
-            inline_stack << {Element::Italic, seq}
+            seq = @stylesheet[InlineElement::Italic].to_ansi
+            inline_stack << {InlineElement::Italic, seq}
             buf << seq
           else
             buf << '*'
@@ -500,15 +372,15 @@ module Termify
       # "~~" -- strikethrough. Lone "~" emitted as literal.
       private def scan_tilde(
         chars : Array(Char), i : Int32, n : Int32, buf : String::Builder,
-        block_style : Style, inline_stack : Array({Element, String}),
+        block_style : Style, inline_stack : Array({InlineElement, String}),
       ) : Int32
         if i + 1 < n && chars[i + 1] == '~'
-          if inline_stack.any? { |entry| entry[0] == Element::Strikethrough }
-            pop_inline(Element::Strikethrough, inline_stack)
+          if inline_stack.any? { |entry| entry[0] == InlineElement::Strikethrough }
+            pop_inline(InlineElement::Strikethrough, inline_stack)
             buf << replay_sequence(block_style, inline_stack)
           elsif find_two_chars(chars, '~', i + 2)
-            seq = @stylesheet[Element::Strikethrough].to_ansi
-            inline_stack << {Element::Strikethrough, seq}
+            seq = @stylesheet[InlineElement::Strikethrough].to_ansi
+            inline_stack << {InlineElement::Strikethrough, seq}
             buf << seq
           else
             buf << "~~"
@@ -523,18 +395,18 @@ module Termify
       # "_" -- italic, with mid-word exemption (snake_case passes through).
       private def scan_underscore(
         chars : Array(Char), i : Int32, n : Int32, buf : String::Builder,
-        block_style : Style, inline_stack : Array({Element, String}),
+        block_style : Style, inline_stack : Array({InlineElement, String}),
       ) : Int32
         prev_word = i > 0 && chars[i - 1].alphanumeric?
         next_word = i + 1 < n && chars[i + 1].alphanumeric?
         if prev_word && next_word
           buf << '_'
-        elsif inline_stack.any? { |entry| entry[0] == Element::Italic }
-          pop_inline(Element::Italic, inline_stack)
+        elsif inline_stack.any? { |entry| entry[0] == InlineElement::Italic }
+          pop_inline(InlineElement::Italic, inline_stack)
           buf << replay_sequence(block_style, inline_stack)
         elsif find_closing_underscore(chars, i + 1)
-          seq = @stylesheet[Element::Italic].to_ansi
-          inline_stack << {Element::Italic, seq}
+          seq = @stylesheet[InlineElement::Italic].to_ansi
+          inline_stack << {InlineElement::Italic, seq}
           buf << seq
         else
           buf << '_'
@@ -591,31 +463,151 @@ module Termify
         nil
       end
 
-      private def pop_inline(element : Element, stack : Array({Element, String})) : Nil
+      private def pop_inline(element : InlineElement, stack : Array({InlineElement, String})) : Nil
         idx = stack.rindex { |entry| entry[0] == element }
         stack.delete_at(idx) if idx
       end
 
       # Returns RESET + block_style ANSI + replay of all open inline sequences.
       # Emitted when closing an inline span so the composite style is restored.
-      private def replay_sequence(block_style : Style, stack : Array({Element, String})) : String
+      private def replay_sequence(block_style : Style, stack : Array({InlineElement, String})) : String
         ANSI::RESET + block_style.to_ansi + stack.map { |entry| entry[1] }.join
       end
 
       # -- block helpers -----------------------------------------------------
-      private def heading_element(level : Int) : Element
+      private def heading_element(level : Int) : BlockElement
         case level
-        when 1 then Element::H1
-        when 2 then Element::H2
-        when 3 then Element::H3
-        when 4 then Element::H4
-        when 5 then Element::H5
-        else        Element::H6
+        when 1 then BlockElement::H1
+        when 2 then BlockElement::H2
+        when 3 then BlockElement::H3
+        when 4 then BlockElement::H4
+        when 5 then BlockElement::H5
+        else        BlockElement::H6
         end
       end
 
       private def horizontal_rule?(line : String) : Bool
         !!(line =~ HORIZONTAL_RULE)
+      end
+
+      # -- list helpers -------------------------------------------------------
+
+      # Returns true if *line* is an unordered or ordered list item.
+      private def list_line?(line : String) : Bool
+        UNORDERED_LIST.matches?(line) || ORDERED_LIST.matches?(line)
+      end
+
+      # Clears list nesting state. Called on any non-continuation, non-list line.
+      # Blank lines within a list item are swallowed (loose list termination deferred).
+      private def exit_list : Nil
+        @list_stack.clear
+        @list_pending_blank = false
+      end
+
+      # Handles a line while a list is active. Returns true if consumed; false
+      # if the list was exited and the line needs normal dispatch.
+      private def handle_list_line(line : String) : Bool
+        if line.empty?
+          @list_pending_blank = true
+          return true
+        end
+
+        pending = @list_pending_blank
+        @list_pending_blank = false
+        content_indent = @list_stack.last[:content_indent]
+
+        if list_line?(line)
+          flush_table if @block_mode.table?
+          process_list_item(line)
+          true
+        elsif list_continuation?(line, content_indent)
+          dispatch_continuation(strip_list_indent(line, content_indent))
+          true
+        else
+          flush_table if @block_mode.table?
+          exit_list
+          @io << '\n' if pending
+          false
+        end
+      end
+
+      # Returns true if *line* has enough leading whitespace to be a continuation
+      # block of the current list item.
+      private def list_continuation?(line : String, content_indent : Int32) : Bool
+        (line.size - line.lstrip.size) >= content_indent
+      end
+
+      # Strips exactly *n* leading characters from *line*.
+      private def strip_list_indent(line : String, n : Int32) : String
+        line.size >= n ? line[n..] : line.lstrip
+      end
+
+      # Dispatches a continuation line (already de-indented) through the normal
+      # table and block pipeline, bypassing the list check.
+      private def dispatch_continuation(line : String) : Nil
+        return if process_table_line(line)
+        dispatch_block(line)
+      end
+
+      # Updates the list nesting stack for a new item at *indent*.
+      private def process_list_item(line : String) : Nil
+        indent, ordered, content, content_indent = parse_list_line(line)
+        update_list_stack(indent, ordered, content_indent)
+        emit_list_item(content, list_item_prefix(ordered))
+      end
+
+      # Parses indent, type, content text, and content column from a list line.
+      private def parse_list_line(line : String) : {Int32, Bool, String, Int32}
+        indent = line.size - line.lstrip.size
+        ordered = ORDERED_LIST.matches?(line)
+        content = ordered ? line.match!(ORDERED_LIST)[1] : line.match!(UNORDERED_LIST)[1]
+        {indent, ordered, content, line.size - content.size}
+      end
+
+      # Updates the list nesting stack for a new item at *indent*.
+      private def update_list_stack(indent : Int32, ordered : Bool, content_indent : Int32) : Nil
+        if @list_stack.empty? || indent > @list_stack.last[:indent]
+          push_list_level(indent, ordered, content_indent)
+        elsif indent < @list_stack.last[:indent]
+          while @list_stack.size > 1 && @list_stack.last[:indent] > indent
+            @list_stack.pop
+          end
+          increment_counter(content_indent) if ordered
+        elsif ordered != @list_stack.last[:ordered]
+          @list_stack.pop
+          push_list_level(indent, ordered, content_indent)
+        else
+          increment_counter(content_indent) if ordered
+        end
+      end
+
+      # Pushes a new level onto the list stack.
+      private def push_list_level(indent : Int32, ordered : Bool, content_indent : Int32) : Nil
+        @list_stack << {indent: indent, ordered: ordered, counter: ordered ? 1 : 0, content_indent: content_indent}
+      end
+
+      # Increments the counter on the top stack entry, preserving all other fields.
+      private def increment_counter(content_indent : Int32) : Nil
+        last = @list_stack.pop
+        @list_stack << {indent: last[:indent], ordered: last[:ordered], counter: last[:counter] + 1, content_indent: content_indent}
+      end
+
+      # Returns the prefix string for the current list depth and type.
+      private def list_item_prefix(ordered : Bool) : String
+        depth = @list_stack.size - 1
+        if ordered
+          "  " * depth + @list_stack.last[:counter].to_s + ". "
+        else
+          "  " * depth + BULLETS[depth % BULLETS.size] + " "
+        end
+      end
+
+      # Emits one list item using ListItem stylesheet style but a dynamic prefix.
+      private def emit_list_item(content : String, list_prefix : String) : Nil
+        style = @stylesheet[BlockElement::ListItem]
+        ansi = style.to_ansi
+        reset = ansi.empty? ? "" : ANSI::RESET
+        @io << ansi << list_prefix << render_inline(content, style) << reset << (style.suffix || "") << '\n'
       end
     end
   end
