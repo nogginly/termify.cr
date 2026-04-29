@@ -22,10 +22,10 @@ Spectator.describe Termify::Markdown::Style do
     end
 
     it "accepts named arguments selectively" do
-      s = Termify::Markdown::Style.new(bold: true, fg: Termify::ANSI::FG_RED)
+      s = Termify::Markdown::Style.new(bold: true, fg: Colorize::ColorANSI::Red)
       expect(s.bold?).to be_true
       expect(s.italic?).to be_false
-      expect(s.fg).to eq(Termify::ANSI::FG_RED)
+      expect(s.fg).to eq(Colorize::ColorANSI::Red)
       expect(s.bg).to be_nil
     end
   end
@@ -76,32 +76,32 @@ Spectator.describe Termify::Markdown::Style do
     end
 
     it "emits the fg sequence when fg is set" do
-      s = Termify::Markdown::Style.new(fg: Termify::ANSI::FG_CYAN)
-      expect(s.to_ansi).to eq(Termify::ANSI::FG_CYAN)
+      s = Termify::Markdown::Style.new(fg: Colorize::ColorANSI::Cyan)
+      expect(s.to_ansi).to eq("\e[36m")
     end
 
     it "emits the bg sequence when bg is set" do
-      s = Termify::Markdown::Style.new(bg: Termify::ANSI::BG_BLUE)
-      expect(s.to_ansi).to eq(Termify::ANSI::BG_BLUE)
+      s = Termify::Markdown::Style.new(bg: Colorize::ColorANSI::Blue)
+      expect(s.to_ansi).to eq("\e[44m")
     end
 
     it "emits SGR flags before fg before bg (canonical order)" do
       s = Termify::Markdown::Style.new(
         bold: true,
         italic: true,
-        fg: Termify::ANSI::FG_YELLOW,
-        bg: Termify::ANSI::BG_BLACK
+        fg: Colorize::ColorANSI::Yellow,
+        bg: Colorize::ColorANSI::Black
       )
       expect(s.to_ansi).to eq(
         Termify::ANSI::BOLD +
         Termify::ANSI::ITALIC +
-        Termify::ANSI::FG_YELLOW +
-        Termify::ANSI::BG_BLACK
+        "\e[33m" +
+        "\e[40m"
       )
     end
 
     it "works with 256-color fg sequences" do
-      s = Termify::Markdown::Style.new(fg: Termify::ANSI.fg256(202))
+      s = Termify::Markdown::Style.new(fg: Colorize::Color256.new(202))
       expect(s.to_ansi).to eq("\e[38;5;202m")
     end
 
@@ -128,11 +128,11 @@ Spectator.describe Termify::Markdown::Style do
     end
 
     it "returns false when fg is set" do
-      expect(Termify::Markdown::Style.new(fg: Termify::ANSI::FG_GREEN).empty?).to be_false
+      expect(Termify::Markdown::Style.new(fg: Colorize::ColorANSI::Green).empty?).to be_false
     end
 
     it "returns false when bg is set" do
-      expect(Termify::Markdown::Style.new(bg: Termify::ANSI::BG_RED).empty?).to be_false
+      expect(Termify::Markdown::Style.new(bg: Colorize::ColorANSI::Red).empty?).to be_false
     end
   end
 
@@ -155,21 +155,21 @@ Spectator.describe Termify::Markdown::Style do
     end
 
     it "override fg wins over base fg" do
-      base = Termify::Markdown::Style.new(fg: Termify::ANSI::FG_RED)
-      other = Termify::Markdown::Style.new(fg: Termify::ANSI::FG_BLUE)
-      expect(base.merge(other).fg).to eq(Termify::ANSI::FG_BLUE)
+      base = Termify::Markdown::Style.new(fg: Colorize::ColorANSI::Red)
+      other = Termify::Markdown::Style.new(fg: Colorize::ColorANSI::Blue)
+      expect(base.merge(other).fg).to eq(Colorize::ColorANSI::Blue)
     end
 
     it "base fg is kept when override fg is nil" do
-      base = Termify::Markdown::Style.new(fg: Termify::ANSI::FG_GREEN)
+      base = Termify::Markdown::Style.new(fg: Colorize::ColorANSI::Green)
       other = Termify::Markdown::Style.new
-      expect(base.merge(other).fg).to eq(Termify::ANSI::FG_GREEN)
+      expect(base.merge(other).fg).to eq(Colorize::ColorANSI::Green)
     end
 
     it "override bg wins over base bg" do
-      base = Termify::Markdown::Style.new(bg: Termify::ANSI::BG_BLACK)
-      other = Termify::Markdown::Style.new(bg: Termify::ANSI::BG_WHITE)
-      expect(base.merge(other).bg).to eq(Termify::ANSI::BG_WHITE)
+      base = Termify::Markdown::Style.new(bg: Colorize::ColorANSI::Black)
+      other = Termify::Markdown::Style.new(bg: Colorize::ColorANSI::LightGray)
+      expect(base.merge(other).bg).to eq(Colorize::ColorANSI::LightGray)
     end
 
     it "override prefix wins over base prefix" do
@@ -185,7 +185,7 @@ Spectator.describe Termify::Markdown::Style do
     end
 
     it "merging with NONE returns a style equal in value to self" do
-      base = Termify::Markdown::Style.new(bold: true, fg: Termify::ANSI::FG_CYAN)
+      base = Termify::Markdown::Style.new(bold: true, fg: Colorize::ColorANSI::Cyan)
       merged = base.merge(Termify::Markdown::Style::NONE)
       expect(merged.bold?).to eq(base.bold?)
       expect(merged.fg).to eq(base.fg)

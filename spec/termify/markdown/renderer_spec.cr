@@ -131,21 +131,21 @@ Spectator.describe Termify::Markdown::Renderer do
         output = render_line("# Heading")
         expect(output).to contain(ANSI::BOLD)
         expect(output).to contain(ANSI::UNDERLINE)
-        expect(output).to contain(ANSI::FG_BRIGHT_WHITE)
+        expect(output).to contain("\e[97m")
         expect(output).to contain("Heading")
       end
 
       it "applies bold + bright-white fg for H2" do
         output = render_line("## Heading")
         expect(output).to contain(ANSI::BOLD)
-        expect(output).to contain(ANSI::FG_BRIGHT_WHITE)
+        expect(output).to contain("\e[97m")
         expect(output).to contain("Heading")
       end
 
       it "applies bold + white fg for H3" do
         output = render_line("### Heading")
         expect(output).to contain(ANSI::BOLD)
-        expect(output).to contain(ANSI::FG_WHITE)
+        expect(output).to contain("\e[37m")
         expect(output).to contain("Heading")
       end
 
@@ -199,7 +199,7 @@ Spectator.describe Termify::Markdown::Renderer do
       it "emits code-block styling for lines inside a triple-backtick fence" do
         output = render_block("```\nsome code\n```\n")
         expect(output).to contain("some code")
-        expect(output).to contain(ANSI::FG_BRIGHT_WHITE)
+        expect(output).to contain("\e[97m")
       end
 
       it "does not apply inline parsing inside a code fence" do
@@ -210,7 +210,7 @@ Spectator.describe Termify::Markdown::Renderer do
       it "supports tilde fences" do
         output = render_block("~~~\nsome code\n~~~\n")
         expect(output).to contain("some code")
-        expect(output).to contain(ANSI::FG_BRIGHT_WHITE)
+        expect(output).to contain("\e[97m")
       end
 
       it "returns to normal mode after the closing fence marker" do
@@ -223,19 +223,19 @@ Spectator.describe Termify::Markdown::Renderer do
       it "recognises a fence with 1 leading space" do
         output = render_block(" ```\nsome code\n ```\n")
         expect(output).to contain("some code")
-        expect(output).to contain(ANSI::FG_BRIGHT_WHITE)
+        expect(output).to contain("\e[97m")
       end
 
       it "recognises a fence with 3 leading spaces" do
         output = render_block("   ```\nsome code\n   ```\n")
         expect(output).to contain("some code")
-        expect(output).to contain(ANSI::FG_BRIGHT_WHITE)
+        expect(output).to contain("\e[97m")
       end
 
       it "does not recognise a fence with 4 or more leading spaces" do
         output = render_block("    ```\nsome code\n    ```\n")
         # 4-space indent is not a fence -- falls through to paragraph
-        expect(output).to_not contain(ANSI::FG_BRIGHT_WHITE)
+        expect(output).to_not contain("\e[97m")
       end
     end
 
@@ -286,25 +286,25 @@ Spectator.describe Termify::Markdown::Renderer do
       it "recognises a standalone opening tag" do
         output = render_line("<div>")
         expect(output).to contain("<div>")
-        expect(output).to contain(ANSI::FG_RED)
+        expect(output).to contain("\e[31m")
       end
 
       it "recognises a standalone closing tag" do
         output = render_line("</div>")
         expect(output).to contain("</div>")
-        expect(output).to contain(ANSI::FG_RED)
+        expect(output).to contain("\e[31m")
       end
 
       it "recognises a self-closing tag" do
         output = render_line("<hr/>")
         expect(output).to contain("<hr/>")
-        expect(output).to contain(ANSI::FG_RED)
+        expect(output).to contain("\e[31m")
       end
 
       it "recognises a tag with attributes" do
         output = render_line("<script src=\"app.js\">")
         expect(output).to contain("<script src=\"app.js\">")
-        expect(output).to contain(ANSI::FG_RED)
+        expect(output).to contain("\e[31m")
       end
 
       it "strips leading whitespace from the tag" do
@@ -322,7 +322,7 @@ Spectator.describe Termify::Markdown::Renderer do
       it "does not treat a multi-tag line as block HTML" do
         output = render_line("<div><span>")
         # falls through to paragraph + inline HTML scanning
-        expect(output).to contain(ANSI::FG_RED) # inline tags still styled
+        expect(output).to contain("\e[31m") # inline tags still styled
         expect(output).to contain("<div>")
         expect(output).to contain("<span>")
       end
@@ -336,7 +336,7 @@ Spectator.describe Termify::Markdown::Renderer do
 
       it "emits RESET after the tag" do
         output = render_line("<div>")
-        red_pos = output.index(ANSI::FG_RED).not_nil!
+        red_pos = output.index("\e[31m").not_nil!
         reset_pos = output.rindex(ANSI::RESET).not_nil!
         expect(red_pos).to be < reset_pos
       end
@@ -433,13 +433,13 @@ Spectator.describe Termify::Markdown::Renderer do
     describe "code span (`text`)" do
       it "applies CodeInline fg (cyan) around the code text" do
         output = render_line("`code`")
-        expect(output).to contain(ANSI::FG_CYAN)
+        expect(output).to contain("\e[36m")
         expect(output).to contain("code")
       end
 
       it "emits RESET after the closing backtick" do
         output = render_line("`code`")
-        cyan_pos = output.index(ANSI::FG_CYAN).not_nil!
+        cyan_pos = output.index("\e[36m").not_nil!
         reset_pos = output.rindex(ANSI::RESET).not_nil!
         expect(cyan_pos).to be < reset_pos
       end
@@ -447,7 +447,7 @@ Spectator.describe Termify::Markdown::Renderer do
       it "treats an unmatched backtick as literal" do
         output = render_line("`no close")
         expect(output).to contain("`no close")
-        expect(output).to_not contain(ANSI::FG_CYAN)
+        expect(output).to_not contain("\e[36m")
       end
 
       it "does not process inline markup inside a code span" do
@@ -487,12 +487,12 @@ Spectator.describe Termify::Markdown::Renderer do
 
       it "applies FG_RED to the tag" do
         output = render_line("text <em>here</em> end")
-        expect(output).to contain(ANSI::FG_RED)
+        expect(output).to contain("\e[31m")
       end
 
       it "emits RESET after the tag" do
         output = render_line("text <em>here</em> end")
-        red_pos = output.index(ANSI::FG_RED).not_nil!
+        red_pos = output.index("\e[31m").not_nil!
         reset_pos = output.rindex(ANSI::RESET).not_nil!
         expect(red_pos).to be < reset_pos
       end
@@ -500,19 +500,19 @@ Spectator.describe Termify::Markdown::Renderer do
       it "handles self-closing tags" do
         output = render_line("line break<br/> here")
         expect(output).to contain("<br/>")
-        expect(output).to contain(ANSI::FG_RED)
+        expect(output).to contain("\e[31m")
       end
 
       it "handles closing tags" do
         output = render_line("</div>")
         expect(output).to contain("</div>")
-        expect(output).to contain(ANSI::FG_RED)
+        expect(output).to contain("\e[31m")
       end
 
       it "treats a bare '<' with no valid tag as a literal" do
         output = render_line("a < b")
         expect(output).to contain("< b")
-        expect(output).to_not contain(ANSI::FG_RED)
+        expect(output).to_not contain("\e[31m")
       end
 
       it "handles multiple tags on one line" do
@@ -533,7 +533,7 @@ Spectator.describe Termify::Markdown::Renderer do
       it "does not apply HTML tag styling inside a code fence" do
         output = render_block("```\n<em>not styled</em>\n```\n")
         expect(output).to contain("<em>not styled</em>")
-        expect(output).to_not contain(ANSI::FG_RED)
+        expect(output).to_not contain("\e[31m")
       end
     end
 
@@ -555,12 +555,12 @@ Spectator.describe Termify::Markdown::Renderer do
 
       it "applies FG_BRIGHT_BLUE to link text" do
         output = render_line("[click here](https://example.com)")
-        expect(output).to contain(ANSI::FG_BRIGHT_BLUE)
+        expect(output).to contain("\e[94m")
       end
 
       it "emits RESET after the link" do
         output = render_line("[click here](https://example.com)")
-        blue_pos = output.index(ANSI::FG_BRIGHT_BLUE).not_nil!
+        blue_pos = output.index("\e[94m").not_nil!
         reset_pos = output.rindex(ANSI::RESET).not_nil!
         expect(blue_pos).to be < reset_pos
       end
@@ -574,7 +574,7 @@ Spectator.describe Termify::Markdown::Renderer do
       it "treats '[text]' without '(url)' as literal" do
         output = render_line("[text] no parens")
         expect(output).to contain("[text]")
-        expect(output).to_not contain(ANSI::FG_BRIGHT_BLUE)
+        expect(output).to_not contain("\e[94m")
       end
 
       it "renders bold inside link text" do
@@ -612,7 +612,7 @@ Spectator.describe Termify::Markdown::Renderer do
       it "renders italic containing a code span" do
         output = render_line("*italic `code` italic*")
         expect(output).to contain(ANSI::ITALIC)
-        expect(output).to contain(ANSI::FG_CYAN)
+        expect(output).to contain("\e[36m")
         expect(output).to contain("code")
       end
     end
@@ -620,16 +620,16 @@ Spectator.describe Termify::Markdown::Renderer do
     describe "inline inside block" do
       it "renders bold inside a heading" do
         output = render_line("# Title with **bold**")
-        expect(output).to contain(ANSI::FG_BRIGHT_WHITE) # heading style
-        expect(output).to contain(ANSI::BOLD)            # both heading and inline bold
+        expect(output).to contain("\e[97m")   # heading style
+        expect(output).to contain(ANSI::BOLD) # both heading and inline bold
         expect(output).to contain("Title with")
         expect(output).to contain("bold")
       end
 
       it "renders code span inside a blockquote" do
         output = render_line("> quote with `code` inside")
-        expect(output).to contain("| ")          # blockquote prefix
-        expect(output).to contain(ANSI::FG_CYAN) # code inline
+        expect(output).to contain("| ")     # blockquote prefix
+        expect(output).to contain("\e[36m") # code inline
         expect(output).to contain("code")
       end
     end
@@ -639,7 +639,7 @@ Spectator.describe Termify::Markdown::Renderer do
         output = render_line("**a** *b* `c`")
         expect(output).to contain(ANSI::BOLD)
         expect(output).to contain(ANSI::ITALIC)
-        expect(output).to contain(ANSI::FG_CYAN)
+        expect(output).to contain("\e[36m")
         expect(output).to contain("a")
         expect(output).to contain("b")
         expect(output).to contain("c")

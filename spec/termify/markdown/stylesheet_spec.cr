@@ -33,10 +33,10 @@ Spectator.describe Termify::Markdown::Stylesheet do
   describe "#[]= and #[]" do
     it "stores and retrieves a style" do
       sheet = Termify::Markdown::Stylesheet.new
-      custom = Termify::Markdown::Style.new(bold: true, fg: Termify::ANSI::FG_RED)
+      custom = Termify::Markdown::Style.new(bold: true, fg: Colorize::ColorANSI::Red)
       sheet[Termify::Markdown::BlockElement::H1] = custom
       expect(sheet[Termify::Markdown::BlockElement::H1].bold?).to be_true
-      expect(sheet[Termify::Markdown::BlockElement::H1].fg).to eq(Termify::ANSI::FG_RED)
+      expect(sheet[Termify::Markdown::BlockElement::H1].fg).to eq(Colorize::ColorANSI::Red)
     end
 
     it "overwriting an entry replaces the previous style" do

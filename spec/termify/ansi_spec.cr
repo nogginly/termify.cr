@@ -23,27 +23,27 @@ Spectator.describe Termify::ANSI do
     end
   end
 
-  describe ".fg256" do
+  describe ".fg (Color256)" do
     it "produces the correct 256-color foreground sequence" do
-      expect(Termify::ANSI.fg256(196)).to eq("\e[38;5;196m")
+      expect(Termify::ANSI.fg(Colorize::Color256.new(196))).to eq("\e[38;5;196m")
     end
   end
 
-  describe ".bg256" do
+  describe ".bg (Color256)" do
     it "produces the correct 256-color background sequence" do
-      expect(Termify::ANSI.bg256(21)).to eq("\e[48;5;21m")
+      expect(Termify::ANSI.bg(Colorize::Color256.new(21))).to eq("\e[48;5;21m")
     end
   end
 
-  describe ".fg_truecolor" do
+  describe ".fg (ColorRGB)" do
     it "produces the correct truecolor foreground sequence" do
-      expect(Termify::ANSI.fg_truecolor(255, 128, 0)).to eq("\e[38;2;255;128;0m")
+      expect(Termify::ANSI.fg(Colorize::ColorRGB.new(255, 128, 0))).to eq("\e[38;2;255;128;0m")
     end
   end
 
-  describe ".bg_truecolor" do
+  describe ".bg (ColorRGB)" do
     it "produces the correct truecolor background sequence" do
-      expect(Termify::ANSI.bg_truecolor(0, 0, 0)).to eq("\e[48;2;0;0;0m")
+      expect(Termify::ANSI.bg(Colorize::ColorRGB.new(0, 0, 0))).to eq("\e[48;2;0;0;0m")
     end
   end
 

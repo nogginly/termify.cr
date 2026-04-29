@@ -38,12 +38,12 @@ Spectator.describe Termify do
     it "accepts a custom stylesheet" do
       io = IO::Memory.new
       custom = Termify::Markdown::Stylesheet.new({
-        :paragraph => {fg: Termify::ANSI::FG_CYAN},
+        :paragraph => {fg: Colorize::ColorANSI::Cyan},
       })
       Termify.render_markdown(io, custom) do |md|
         md << "some text\n"
       end
-      expect(io.to_s).to contain(Termify::ANSI::FG_CYAN)
+      expect(io.to_s).to contain("\e[36m")
     end
   end
 end

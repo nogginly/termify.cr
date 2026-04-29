@@ -98,27 +98,27 @@ module Termify
       def self.default : Stylesheet
         new(
           block_styles: {
-            BlockElement::H1             => Style.new(bold: true, underline: true, fg: ANSI::FG_BRIGHT_WHITE, prefix: "# ", suffix: "\n"),
-            BlockElement::H2             => Style.new(bold: true, underline: true, fg: ANSI::FG_BRIGHT_WHITE),
-            BlockElement::H3             => Style.new(bold: true, underline: true, fg: ANSI::FG_WHITE),
+            BlockElement::H1             => Style.new(bold: true, underline: true, fg: Colorize::ColorANSI::White, prefix: "# ", suffix: "\n"),
+            BlockElement::H2             => Style.new(bold: true, underline: true, fg: Colorize::ColorANSI::White),
+            BlockElement::H3             => Style.new(bold: true, underline: true, fg: Colorize::ColorANSI::LightGray),
             BlockElement::H4             => Style.new(bold: true, underline: true, dim: true),
             BlockElement::H5             => Style.new(italic: true, underline: true, dim: true),
             BlockElement::H6             => Style.new(dim: true, underline: true),
             BlockElement::Paragraph      => Style::NONE,
             BlockElement::Blockquote     => Style.new(prefix: "| "),
-            BlockElement::CodeBlock      => Style.new(fg: ANSI::FG_BRIGHT_WHITE, bg: ANSI::BG_BRIGHT_BLACK),
+            BlockElement::CodeBlock      => Style.new(fg: Colorize::ColorANSI::White, bg: Colorize::ColorANSI::DarkGray),
             BlockElement::HorizontalRule => Style.new(dim: true),
             BlockElement::ListItem       => Style.new(prefix: "* "),
-            BlockElement::BlockHtml      => Style.new(fg: ANSI::FG_RED),
+            BlockElement::BlockHtml      => Style.new(fg: Colorize::ColorANSI::Red),
             BlockElement::Table          => Style::NONE,
           } of BlockElement => Style,
           inline_styles: {
             InlineElement::Bold          => Style.new(bold: true),
             InlineElement::Italic        => Style.new(italic: true),
             InlineElement::Strikethrough => Style.new(strikethrough: true),
-            InlineElement::CodeInline    => Style.new(fg: ANSI::FG_CYAN),
-            InlineElement::Link          => Style.new(underline: true, fg: ANSI::FG_BRIGHT_BLUE),
-            InlineElement::HtmlTag       => Style.new(fg: ANSI::FG_RED),
+            InlineElement::CodeInline    => Style.new(fg: Colorize::ColorANSI::Cyan),
+            InlineElement::Link          => Style.new(underline: true, fg: Colorize::ColorANSI::LightBlue),
+            InlineElement::HtmlTag       => Style.new(fg: Colorize::ColorANSI::Red),
           } of InlineElement => Style,
         )
       end

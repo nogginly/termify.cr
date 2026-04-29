@@ -10,11 +10,10 @@ ss = Termify::Markdown::Stylesheet.new({
   :h4          => {bold: true},
   :h5          => {bold: true},
   :h6          => {bold: true},
-  :code_block  => {fg: Termify::ANSI::FG_WHITE, dim: true, prefix: "` "},
-  :code_inline => {fg: Termify::ANSI::FG_RED},
+  :code_block  => {fg: Colorize::ColorANSI::LightCyan, prefix: "` "},
+  :code_inline => {fg: Colorize::ColorANSI::Red},
   :html_tag    => {dim: true},
   :block_html  => {dim: true},
-  :table       => {fg: Termify::ANSI::FG_DEFAULT},
   :block_quote => {prefix: "│ "},
 })
 

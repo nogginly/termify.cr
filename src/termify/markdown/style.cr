@@ -18,8 +18,8 @@ module Termify
       getter? dim : Bool
       getter? underline : Bool
       getter? strikethrough : Bool
-      getter fg : String?
-      getter bg : String?
+      getter fg : Colorize::Color?
+      getter bg : Colorize::Color?
       # Literal text prepended to each rendered line (e.g. "# ", "│ ", "  ").
       getter prefix : String?
       # Literal text appended after rendered content on the same line.
@@ -31,8 +31,8 @@ module Termify
         @dim : Bool = false,
         @underline : Bool = false,
         @strikethrough : Bool = false,
-        @fg : String? = nil,
-        @bg : String? = nil,
+        @fg : Colorize::Color? = nil,
+        @bg : Colorize::Color? = nil,
         @prefix : String? = nil,
         @suffix : String? = nil,
       )
@@ -47,12 +47,8 @@ module Termify
         parts << ANSI::DIM if @dim
         parts << ANSI::UNDERLINE if @underline
         parts << ANSI::STRIKETHROUGH if @strikethrough
-        if fg = @fg
-          parts << fg
-        end
-        if bg = @bg
-          parts << bg
-        end
+        parts << ANSI.fg(@fg.not_nil!) if @fg
+        parts << ANSI.bg(@bg.not_nil!) if @bg
         parts.join
       end
 
