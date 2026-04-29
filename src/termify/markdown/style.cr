@@ -47,8 +47,12 @@ module Termify
         parts << ANSI::DIM if @dim
         parts << ANSI::UNDERLINE if @underline
         parts << ANSI::STRIKETHROUGH if @strikethrough
-        parts << ANSI.fg(@fg.not_nil!) if @fg
-        parts << ANSI.bg(@bg.not_nil!) if @bg
+        if fore = @fg
+          parts << ANSI.fg(fore)
+        end
+        if back = @bg
+          parts << ANSI.bg(back)
+        end
         parts.join
       end
 
