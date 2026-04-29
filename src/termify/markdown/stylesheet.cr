@@ -69,8 +69,8 @@ module Termify
           strikethrough: opts["strikethrough"]? || false,
           fg: color_from(opts["fg"]?),
           bg: color_from(opts["bg"]?),
-          prefix: opts["prefix"]?,
-          suffix: opts["suffix"]?,
+          line_prefix: opts["line_prefix"]?,
+          line_suffix: opts["line_suffix"]?,
         )
       end
 
@@ -106,17 +106,17 @@ module Termify
       def self.default : Stylesheet
         new(
           block_styles: {
-            BlockElement::H1             => Style.new(bold: true, underline: true, fg: Colorize::ColorANSI::White, prefix: "# ", suffix: "\n"),
+            BlockElement::H1             => Style.new(bold: true, underline: true, fg: Colorize::ColorANSI::White, line_prefix: "# ", line_suffix: "\n"),
             BlockElement::H2             => Style.new(bold: true, underline: true, fg: Colorize::ColorANSI::White),
             BlockElement::H3             => Style.new(bold: true, underline: true, fg: Colorize::ColorANSI::LightGray),
             BlockElement::H4             => Style.new(bold: true, underline: true, dim: true),
             BlockElement::H5             => Style.new(italic: true, underline: true, dim: true),
             BlockElement::H6             => Style.new(dim: true, underline: true),
             BlockElement::Paragraph      => Style::NONE,
-            BlockElement::Blockquote     => Style.new(prefix: "| "),
+            BlockElement::Blockquote     => Style.new(line_prefix: "| "),
             BlockElement::CodeBlock      => Style.new(fg: Colorize::ColorANSI::White, bg: Colorize::ColorANSI::DarkGray),
             BlockElement::HorizontalRule => Style.new(dim: true),
-            BlockElement::ListItem       => Style.new(prefix: "* "),
+            BlockElement::ListItem       => Style.new(line_prefix: "* "),
             BlockElement::BlockHtml      => Style.new(fg: Colorize::ColorANSI::Red),
             BlockElement::Table          => Style::NONE,
           } of BlockElement => Style,

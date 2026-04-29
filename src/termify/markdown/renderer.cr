@@ -230,10 +230,10 @@ module Termify
       private def emit_styled(element : BlockElement, text : String, io = @io, chomp = false) : Nil
         style = @stylesheet[element]
         ansi = style.to_ansi
-        prefix = style.prefix || ""
+        prefix = style.line_prefix || ""
         reset = ansi.empty? ? "" : ANSI::RESET
         list_indent = io.same?(@io) ? list_visual_indent : ""
-        io << ansi << list_indent << prefix << render_inline(text, style) << reset << style.suffix
+        io << ansi << list_indent << prefix << render_inline(text, style) << reset << style.line_suffix
         io << '\n' unless chomp
       end
 
@@ -242,7 +242,7 @@ module Termify
       private def emit_raw(element : BlockElement, text : String) : Nil
         style = @stylesheet[element]
         ansi = style.to_ansi
-        prefix = style.prefix || ""
+        prefix = style.line_prefix || ""
         reset = ansi.empty? ? "" : ANSI::RESET
         @io << ansi << list_visual_indent << prefix << text << reset << '\n'
       end
@@ -607,7 +607,7 @@ module Termify
         style = @stylesheet[BlockElement::ListItem]
         ansi = style.to_ansi
         reset = ansi.empty? ? "" : ANSI::RESET
-        @io << ansi << list_prefix << render_inline(content, style) << reset << (style.suffix || "") << '\n'
+        @io << ansi << list_prefix << render_inline(content, style) << reset << (style.line_suffix || "") << '\n'
       end
     end
   end

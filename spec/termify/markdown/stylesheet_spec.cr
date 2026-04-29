@@ -95,8 +95,8 @@ Spectator.describe Termify::Markdown::Stylesheet do
         .to eq(Termify::Markdown::Style::NONE)
     end
 
-    it "Blockquote has a prefix" do
-      expect(sheet[Termify::Markdown::BlockElement::Blockquote].prefix).not_to be_nil
+    it "Blockquote has a line_prefix" do
+      expect(sheet[Termify::Markdown::BlockElement::Blockquote].line_prefix).not_to be_nil
     end
 
     it "CodeBlock has fg and bg set" do
@@ -127,8 +127,8 @@ Spectator.describe Termify::Markdown::Stylesheet do
       expect(s.fg).not_to be_nil
     end
 
-    it "ListItem has a prefix" do
-      expect(sheet[Termify::Markdown::BlockElement::ListItem].prefix).not_to be_nil
+    it "ListItem has a line_prefix" do
+      expect(sheet[Termify::Markdown::BlockElement::ListItem].line_prefix).not_to be_nil
     end
 
     it "HtmlTag has a fg colour" do

@@ -148,13 +148,13 @@ This is inline <span style="color: red;">html</span>
 MD
 
 ss = Termify::Markdown::Stylesheet.new({
-  :h1          => {bold: true, prefix: "# "},
+  :h1          => {bold: true, line_prefix: "# "},
   :h2          => {bold: true},
   :h3          => {bold: true},
   :h4          => {bold: true},
   :h5          => {bold: true},
   :h6          => {bold: true},
-  :code_block  => {fg: :light_blue, prefix: "~ "},
+  :code_block  => {fg: :light_blue, line_prefix: "~ "},
   :code_inline => {fg: :red},
   :html_tag    => {dim: true},
   :block_html  => {dim: true},

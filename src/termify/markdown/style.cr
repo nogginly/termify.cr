@@ -5,8 +5,8 @@ module Termify
     # Immutable value object describing the visual style for one markdown element.
     #
     # Attributes map directly to ANSI SGR flags plus optional fg/bg sequences
-    # (any string produced by ANSI.*) and optional literal prefix/suffix strings
-    # that bracket rendered text at the block level (e.g. "│ " for blockquotes).
+    # (any string produced by ANSI.*) and optional literal line_prefix/line_suffix strings
+    # that bracket rendered text at the block level (e.g. "| " for blockquotes).
     #
     # Composition: `base.merge(override)` returns a new Style where override
     # wins for every attribute it sets, leaving the rest from base.
@@ -20,10 +20,10 @@ module Termify
       getter? strikethrough : Bool
       getter fg : Colorize::Color?
       getter bg : Colorize::Color?
-      # Literal text prepended to each rendered line (e.g. "# ", "│ ", "  ").
-      getter prefix : String?
+      # Literal text prepended to each rendered line (e.g. "# ", "| ", "  ").
+      getter line_prefix : String?
       # Literal text appended after rendered content on the same line.
-      getter suffix : String?
+      getter line_suffix : String?
 
       def initialize(
         @bold : Bool = false,
@@ -33,8 +33,8 @@ module Termify
         @strikethrough : Bool = false,
         @fg : Colorize::Color? = nil,
         @bg : Colorize::Color? = nil,
-        @prefix : String? = nil,
-        @suffix : String? = nil,
+        @line_prefix : String? = nil,
+        @line_suffix : String? = nil,
       )
       end
 
@@ -57,7 +57,7 @@ module Termify
       end
 
       # Returns true when no SGR attributes and no colors are set.
-      # prefix/suffix are intentionally excluded: they affect layout, not color.
+      # line_prefix/line_suffix are intentionally excluded: they affect layout, not color.
       def empty? : Bool
         !@bold && !@italic && !@dim && !@underline && !@strikethrough &&
           @fg.nil? && @bg.nil?
@@ -65,7 +65,7 @@ module Termify
 
       # Returns a new Style with `other`'s set attributes layered on top of self.
       # Bool flags: true wins (OR semantics — inline bold inside bold heading stays bold).
-      # Optional fields (fg, bg, prefix, suffix): `other` wins when non-nil.
+      # Optional fields (fg, bg, line_prefix, line_suffix): `other` wins when non-nil.
       def merge(other : Style) : Style
         Style.new(
           bold: @bold || other.bold?,
@@ -75,8 +75,8 @@ module Termify
           strikethrough: @strikethrough || other.strikethrough?,
           fg: other.fg || @fg,
           bg: other.bg || @bg,
-          prefix: other.prefix || @prefix,
-          suffix: other.suffix || @suffix
+          line_prefix: other.line_prefix || @line_prefix,
+          line_suffix: other.line_suffix || @line_suffix
         )
       end
 
@@ -89,8 +89,8 @@ module Termify
           @strikethrough == other.strikethrough? &&
           @fg == other.fg &&
           @bg == other.bg &&
-          @prefix == other.prefix &&
-          @suffix == other.suffix
+          @line_prefix == other.line_prefix &&
+          @line_suffix == other.line_suffix
       end
 
       # Canonical zero-value -- no styling applied. Immutable shared instance;

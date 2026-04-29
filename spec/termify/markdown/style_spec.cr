@@ -17,8 +17,8 @@ Spectator.describe Termify::Markdown::Style do
       s = Termify::Markdown::Style.new
       expect(s.fg).to be_nil
       expect(s.bg).to be_nil
-      expect(s.prefix).to be_nil
-      expect(s.suffix).to be_nil
+      expect(s.line_prefix).to be_nil
+      expect(s.line_suffix).to be_nil
     end
 
     it "accepts named arguments selectively" do
@@ -105,8 +105,8 @@ Spectator.describe Termify::Markdown::Style do
       expect(s.to_ansi).to eq("\e[38;5;202m")
     end
 
-    it "does not include prefix or suffix in ANSI output" do
-      s = Termify::Markdown::Style.new(bold: true, prefix: "# ", suffix: " #")
+    it "does not include line_prefix or line_suffix in ANSI output" do
+      s = Termify::Markdown::Style.new(bold: true, line_prefix: "# ", line_suffix: " #")
       expect(s.to_ansi).to eq(Termify::ANSI::BOLD)
     end
   end
@@ -118,8 +118,8 @@ Spectator.describe Termify::Markdown::Style do
       expect(Termify::Markdown::Style.new.empty?).to be_true
     end
 
-    it "returns true when only prefix/suffix are set" do
-      s = Termify::Markdown::Style.new(prefix: "> ", suffix: ".")
+    it "returns true when only line_prefix/line_suffix are set" do
+      s = Termify::Markdown::Style.new(line_prefix: "> ", line_suffix: ".")
       expect(s.empty?).to be_true
     end
 
@@ -172,16 +172,16 @@ Spectator.describe Termify::Markdown::Style do
       expect(base.merge(other).bg).to eq(Colorize::ColorANSI::LightGray)
     end
 
-    it "override prefix wins over base prefix" do
-      base = Termify::Markdown::Style.new(prefix: "## ")
-      other = Termify::Markdown::Style.new(prefix: "### ")
-      expect(base.merge(other).prefix).to eq("### ")
+    it "override line_prefix wins over base line_prefix" do
+      base = Termify::Markdown::Style.new(line_prefix: "## ")
+      other = Termify::Markdown::Style.new(line_prefix: "### ")
+      expect(base.merge(other).line_prefix).to eq("### ")
     end
 
-    it "base prefix is kept when override prefix is nil" do
-      base = Termify::Markdown::Style.new(prefix: "> ")
+    it "base line_prefix is kept when override line_prefix is nil" do
+      base = Termify::Markdown::Style.new(line_prefix: "> ")
       other = Termify::Markdown::Style.new(bold: true)
-      expect(base.merge(other).prefix).to eq("> ")
+      expect(base.merge(other).line_prefix).to eq("> ")
     end
 
     it "merging with NONE returns a style equal in value to self" do
