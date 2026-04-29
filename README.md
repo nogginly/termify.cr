@@ -89,4 +89,6 @@ At the end of the first day, and every day, I asked Claude to create a handoff d
 
 Interestingly, this made the experience more tedious. The handoff over the days lost information, especially some design decisions from day 1 and 2 disappeared and I had to notice and remind Claude. It also, I think, took more time since Claude had to "re-learn" code across handoff sessions.
 
+After five such hand-offs, I decided to continue with one session instead, which has turned out to be better. I am amazed at how Claude is able to keep all the information in the session organized so that it doesn't lose its memory when it runs out of context.
+
 > I need to think about this some more
