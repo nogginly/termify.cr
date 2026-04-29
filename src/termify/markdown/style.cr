@@ -1,29 +1,23 @@
 require "../ansi"
+require "./style/properties"
+
+# -----
+# Include ./style/* after defining Style
+# -----
 
 module Termify
   module Markdown
-    # Immutable value object describing the visual style for one markdown element.
+    # Base style -- SGR flags + colors. Parent of BlockStyle and InlineStyle.
+    # Not constructed directly in normal use; instantiate a concrete subclass.
     #
-    # Attributes map directly to ANSI SGR flags plus optional fg/bg sequences
-    # (any string produced by ANSI.*) and optional literal line_prefix/line_suffix strings
-    # that bracket rendered text at the block level (e.g. "| " for blockquotes).
-    #
-    # Composition: `base.merge(override)` returns a new Style where override
-    # wins for every attribute it sets, leaving the rest from base.
-    #
-    # Equality: two Style instances are equal when all fields match (value semantics).
+    # to_ansi  -- concatenates active SGR sequences.
+    # empty?   -- true when no SGR flags or colors are set.
+    # merge    -- layers another style on top; bool flags OR,
+    #             optional fields prefer other when non-nil.
+    # ==       -- value equality across SGR + color fields.
     class Style
-      getter? bold : Bool
-      getter? italic : Bool
-      getter? dim : Bool
-      getter? underline : Bool
-      getter? strikethrough : Bool
-      getter fg : Colorize::Color?
-      getter bg : Colorize::Color?
-      # Literal text prepended to each rendered line (e.g. "# ", "| ", "  ").
-      getter line_prefix : String?
-      # Literal text appended after rendered content on the same line.
-      getter line_suffix : String?
+      include SGRProperties
+      include ColorProperties
 
       def initialize(
         @bold : Bool = false,
@@ -33,13 +27,11 @@ module Termify
         @strikethrough : Bool = false,
         @fg : Colorize::Color? = nil,
         @bg : Colorize::Color? = nil,
-        @line_prefix : String? = nil,
-        @line_suffix : String? = nil,
       )
       end
 
-      # Returns the concatenated ANSI escape sequences for all active attributes.
-      # Produces an empty string when no attributes are set (Style::NONE).
+      # Returns concatenated ANSI escape sequences for all active attributes.
+      # Produces an empty string when no attributes are set.
       def to_ansi : String
         parts = [] of String
         parts << ANSI::BOLD if @bold
@@ -57,15 +49,14 @@ module Termify
       end
 
       # Returns true when no SGR attributes and no colors are set.
-      # line_prefix/line_suffix are intentionally excluded: they affect layout, not color.
+      # line_prefix/line_suffix (BlockStyle only) are excluded -- layout, not SGR.
       def empty? : Bool
         !@bold && !@italic && !@dim && !@underline && !@strikethrough &&
           @fg.nil? && @bg.nil?
       end
 
-      # Returns a new Style with `other`'s set attributes layered on top of self.
-      # Bool flags: true wins (OR semantics — inline bold inside bold heading stays bold).
-      # Optional fields (fg, bg, line_prefix, line_suffix): `other` wins when non-nil.
+      # Returns a new Style with `other`'s attributes layered on top.
+      # Bool flags: true wins (OR). Optional fields: other wins when non-nil.
       def merge(other : Style) : Style
         Style.new(
           bold: @bold || other.bold?,
@@ -75,27 +66,24 @@ module Termify
           strikethrough: @strikethrough || other.strikethrough?,
           fg: other.fg || @fg,
           bg: other.bg || @bg,
-          line_prefix: other.line_prefix || @line_prefix,
-          line_suffix: other.line_suffix || @line_suffix
         )
       end
 
-      # Value equality -- two Style instances are equal when all fields match.
+      # Value equality across SGR + color fields.
       def ==(other : Style) : Bool
+        # Class equality checked by `Style#==` to preserve commutativity
+        return false unless self.class == other.class
+
         @bold == other.bold? &&
           @italic == other.italic? &&
           @dim == other.dim? &&
           @underline == other.underline? &&
           @strikethrough == other.strikethrough? &&
           @fg == other.fg &&
-          @bg == other.bg &&
-          @line_prefix == other.line_prefix &&
-          @line_suffix == other.line_suffix
+          @bg == other.bg
       end
-
-      # Canonical zero-value -- no styling applied. Immutable shared instance;
-      # safe to share because Style exposes no mutation methods.
-      NONE = new
     end
   end
 end
+
+require "./style/*"

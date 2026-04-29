@@ -17,8 +17,6 @@ Spectator.describe Termify::Markdown::Style do
       s = Termify::Markdown::Style.new
       expect(s.fg).to be_nil
       expect(s.bg).to be_nil
-      expect(s.line_prefix).to be_nil
-      expect(s.line_suffix).to be_nil
     end
 
     it "accepts named arguments selectively" do
@@ -30,16 +28,28 @@ Spectator.describe Termify::Markdown::Style do
     end
   end
 
-  # ── NONE constant ───────────────────────────────────────────────────────────
+  # ── NONE constants ──────────────────────────────────────────────────────────
 
-  describe "NONE" do
-    it "is a Style with no attributes set" do
-      expect(Termify::Markdown::Style::NONE.bold?).to be_false
-      expect(Termify::Markdown::Style::NONE.fg).to be_nil
+  describe "BlockStyle::NONE" do
+    it "is a BlockStyle with no attributes set" do
+      expect(Termify::Markdown::BlockStyle::NONE.bold?).to be_false
+      expect(Termify::Markdown::BlockStyle::NONE.fg).to be_nil
+      expect(Termify::Markdown::BlockStyle::NONE.line_prefix).to be_nil
     end
 
     it "produces an empty ANSI string" do
-      expect(Termify::Markdown::Style::NONE.to_ansi).to eq("")
+      expect(Termify::Markdown::BlockStyle::NONE.to_ansi).to eq("")
+    end
+  end
+
+  describe "InlineStyle::NONE" do
+    it "is an InlineStyle with no attributes set" do
+      expect(Termify::Markdown::InlineStyle::NONE.bold?).to be_false
+      expect(Termify::Markdown::InlineStyle::NONE.fg).to be_nil
+    end
+
+    it "produces an empty ANSI string" do
+      expect(Termify::Markdown::InlineStyle::NONE.to_ansi).to eq("")
     end
   end
 
@@ -106,7 +116,7 @@ Spectator.describe Termify::Markdown::Style do
     end
 
     it "does not include line_prefix or line_suffix in ANSI output" do
-      s = Termify::Markdown::Style.new(bold: true, line_prefix: "# ", line_suffix: " #")
+      s = Termify::Markdown::BlockStyle.new(bold: true, line_prefix: "# ", line_suffix: " #")
       expect(s.to_ansi).to eq(Termify::ANSI::BOLD)
     end
   end
@@ -119,7 +129,7 @@ Spectator.describe Termify::Markdown::Style do
     end
 
     it "returns true when only line_prefix/line_suffix are set" do
-      s = Termify::Markdown::Style.new(line_prefix: "> ", line_suffix: ".")
+      s = Termify::Markdown::BlockStyle.new(line_prefix: "> ", line_suffix: ".")
       expect(s.empty?).to be_true
     end
 
@@ -173,20 +183,20 @@ Spectator.describe Termify::Markdown::Style do
     end
 
     it "override line_prefix wins over base line_prefix" do
-      base = Termify::Markdown::Style.new(line_prefix: "## ")
-      other = Termify::Markdown::Style.new(line_prefix: "### ")
+      base = Termify::Markdown::BlockStyle.new(line_prefix: "## ")
+      other = Termify::Markdown::BlockStyle.new(line_prefix: "### ")
       expect(base.merge(other).line_prefix).to eq("### ")
     end
 
     it "base line_prefix is kept when override line_prefix is nil" do
-      base = Termify::Markdown::Style.new(line_prefix: "> ")
-      other = Termify::Markdown::Style.new(bold: true)
+      base = Termify::Markdown::BlockStyle.new(line_prefix: "> ")
+      other = Termify::Markdown::BlockStyle.new(bold: true)
       expect(base.merge(other).line_prefix).to eq("> ")
     end
 
-    it "merging with NONE returns a style equal in value to self" do
+    it "merging with a zero-value style returns a style equal in value to self" do
       base = Termify::Markdown::Style.new(bold: true, fg: Colorize::ColorANSI::Cyan)
-      merged = base.merge(Termify::Markdown::Style::NONE)
+      merged = base.merge(Termify::Markdown::Style.new)
       expect(merged.bold?).to eq(base.bold?)
       expect(merged.fg).to eq(base.fg)
     end
@@ -195,6 +205,91 @@ Spectator.describe Termify::Markdown::Style do
       base = Termify::Markdown::Style.new(bold: true)
       other = Termify::Markdown::Style.new(bold: true)
       expect(base.merge(other).bold?).to be_true
+    end
+  end
+end
+
+Spectator.describe Termify::Markdown::BlockStyle do
+  describe "initialization" do
+    it "defaults line_prefix and line_suffix to nil" do
+      s = Termify::Markdown::BlockStyle.new
+      expect(s.line_prefix).to be_nil
+      expect(s.line_suffix).to be_nil
+    end
+
+    it "accepts line_prefix and line_suffix" do
+      s = Termify::Markdown::BlockStyle.new(line_prefix: "| ", line_suffix: "\n")
+      expect(s.line_prefix).to eq("| ")
+      expect(s.line_suffix).to eq("\n")
+    end
+  end
+
+  describe "#merge" do
+    it "returns a BlockStyle" do
+      base = Termify::Markdown::BlockStyle.new(bold: true)
+      expect(base.merge(Termify::Markdown::BlockStyle.new)).to be_a(Termify::Markdown::BlockStyle)
+    end
+
+    it "picks up line_prefix from other BlockStyle" do
+      base = Termify::Markdown::BlockStyle.new(line_prefix: "A")
+      other = Termify::Markdown::BlockStyle.new(line_prefix: "B")
+      expect(base.merge(other).line_prefix).to eq("B")
+    end
+
+    it "keeps own line_prefix when other has none" do
+      base = Termify::Markdown::BlockStyle.new(line_prefix: "A")
+      other = Termify::Markdown::BlockStyle.new(bold: true)
+      expect(base.merge(other).line_prefix).to eq("A")
+    end
+
+    it "does not pick up line_prefix from a plain Style" do
+      base = Termify::Markdown::BlockStyle.new(line_prefix: "A")
+      other = Termify::Markdown::Style.new(bold: true)
+      expect(base.merge(other).line_prefix).to eq("A")
+    end
+  end
+
+  describe "#==" do
+    it "is equal to another BlockStyle with same fields" do
+      a = Termify::Markdown::BlockStyle.new(bold: true, line_prefix: "> ")
+      b = Termify::Markdown::BlockStyle.new(bold: true, line_prefix: "> ")
+      expect(a).to eq(b)
+    end
+
+    it "is not equal when line_prefix differs" do
+      a = Termify::Markdown::BlockStyle.new(line_prefix: "> ")
+      b = Termify::Markdown::BlockStyle.new(line_prefix: "| ")
+      expect(a).not_to eq(b)
+    end
+
+    it "is not equal to a plain Style with same SGR fields" do
+      a = Termify::Markdown::BlockStyle.new(bold: true)
+      b = Termify::Markdown::Style.new(bold: true)
+      expect(a).not_to eq(b)
+    end
+  end
+end
+
+Spectator.describe Termify::Markdown::InlineStyle do
+  describe "#merge" do
+    it "returns an InlineStyle" do
+      base = Termify::Markdown::InlineStyle.new(bold: true)
+      expect(base.merge(Termify::Markdown::InlineStyle.new)).to be_a(Termify::Markdown::InlineStyle)
+    end
+
+    it "OR-merges bool flags" do
+      base = Termify::Markdown::InlineStyle.new(bold: true)
+      other = Termify::Markdown::InlineStyle.new(italic: true)
+      merged = base.merge(other)
+      expect(merged.bold?).to be_true
+      expect(merged.italic?).to be_true
+    end
+  end
+
+  describe "NONE" do
+    it "is an InlineStyle with no attributes" do
+      expect(Termify::Markdown::InlineStyle::NONE.bold?).to be_false
+      expect(Termify::Markdown::InlineStyle::NONE.fg).to be_nil
     end
   end
 end

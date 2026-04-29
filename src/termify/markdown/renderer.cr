@@ -1,4 +1,4 @@
-require "../ansi"
+require "./style_sheet"
 require "./table_renderer"
 
 module Termify

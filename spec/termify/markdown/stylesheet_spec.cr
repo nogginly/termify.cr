@@ -21,10 +21,10 @@ Spectator.describe Termify::Markdown::Stylesheet do
   # ── blank slate ─────────────────────────────────────────────────────────────
 
   describe ".new (blank)" do
-    it "returns Style::NONE for any unmapped element" do
+    it "returns the appropriate NONE for any unmapped element" do
       sheet = Termify::Markdown::Stylesheet.new
-      expect(sheet[Termify::Markdown::BlockElement::H1]).to eq(Termify::Markdown::Style::NONE)
-      expect(sheet[Termify::Markdown::InlineElement::Bold]).to eq(Termify::Markdown::Style::NONE)
+      expect(sheet[Termify::Markdown::BlockElement::H1]).to eq(Termify::Markdown::BlockStyle::NONE)
+      expect(sheet[Termify::Markdown::InlineElement::Bold]).to eq(Termify::Markdown::InlineStyle::NONE)
     end
   end
 
@@ -33,7 +33,7 @@ Spectator.describe Termify::Markdown::Stylesheet do
   describe "#[]= and #[]" do
     it "stores and retrieves a style" do
       sheet = Termify::Markdown::Stylesheet.new
-      custom = Termify::Markdown::Style.new(bold: true, fg: Colorize::ColorANSI::Red)
+      custom = Termify::Markdown::BlockStyle.new(bold: true, fg: Colorize::ColorANSI::Red)
       sheet[Termify::Markdown::BlockElement::H1] = custom
       expect(sheet[Termify::Markdown::BlockElement::H1].bold?).to be_true
       expect(sheet[Termify::Markdown::BlockElement::H1].fg).to eq(Colorize::ColorANSI::Red)
@@ -41,8 +41,8 @@ Spectator.describe Termify::Markdown::Stylesheet do
 
     it "overwriting an entry replaces the previous style" do
       sheet = Termify::Markdown::Stylesheet.new
-      sheet[Termify::Markdown::InlineElement::Bold] = Termify::Markdown::Style.new(bold: true)
-      sheet[Termify::Markdown::InlineElement::Bold] = Termify::Markdown::Style.new(italic: true)
+      sheet[Termify::Markdown::InlineElement::Bold] = Termify::Markdown::InlineStyle.new(bold: true)
+      sheet[Termify::Markdown::InlineElement::Bold] = Termify::Markdown::InlineStyle.new(italic: true)
       result = sheet[Termify::Markdown::InlineElement::Bold]
       expect(result.bold?).to be_false
       expect(result.italic?).to be_true
@@ -50,8 +50,8 @@ Spectator.describe Termify::Markdown::Stylesheet do
 
     it "does not affect other elements" do
       sheet = Termify::Markdown::Stylesheet.new
-      sheet[Termify::Markdown::BlockElement::H1] = Termify::Markdown::Style.new(bold: true)
-      expect(sheet[Termify::Markdown::BlockElement::H2]).to eq(Termify::Markdown::Style::NONE)
+      sheet[Termify::Markdown::BlockElement::H1] = Termify::Markdown::BlockStyle.new(bold: true)
+      expect(sheet[Termify::Markdown::BlockElement::H2]).to eq(Termify::Markdown::BlockStyle::NONE)
     end
   end
 
@@ -92,7 +92,7 @@ Spectator.describe Termify::Markdown::Stylesheet do
 
     it "Paragraph maps to Style::NONE" do
       expect(sheet[Termify::Markdown::BlockElement::Paragraph])
-        .to eq(Termify::Markdown::Style::NONE)
+        .to eq(Termify::Markdown::BlockStyle::NONE)
     end
 
     it "Blockquote has a line_prefix" do
@@ -144,7 +144,7 @@ Spectator.describe Termify::Markdown::Stylesheet do
     it "each call to .default returns an independent instance" do
       s1 = Termify::Markdown::Stylesheet.default
       s2 = Termify::Markdown::Stylesheet.default
-      s1[Termify::Markdown::InlineElement::Bold] = Termify::Markdown::Style::NONE
+      s1[Termify::Markdown::InlineElement::Bold] = Termify::Markdown::InlineStyle::NONE
       expect(s2[Termify::Markdown::InlineElement::Bold].bold?).to be_true
     end
   end
