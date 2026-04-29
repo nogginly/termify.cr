@@ -67,11 +67,19 @@ module Termify
           dim: opts["dim"]? || false,
           underline: opts["underline"]? || false,
           strikethrough: opts["strikethrough"]? || false,
-          fg: opts["fg"]? || nil,
-          bg: opts["bg"]? || nil,
-          prefix: opts["prefix"]? || nil,
-          suffix: opts["suffix"]? || nil,
+          fg: color_from(opts["fg"]?),
+          bg: color_from(opts["bg"]?),
+          prefix: opts["prefix"]?,
+          suffix: opts["suffix"]?,
         )
+      end
+
+      # Convert color value from symbol/string
+      private def color_from(value : Symbol | String | Colorize::Color | Nil)
+        case value
+        when Symbol, String then Colorize::ColorANSI.parse(value.to_s)
+        else                     value
+        end
       end
 
       # Look up the style for a block element; returns Style::NONE if not mapped.

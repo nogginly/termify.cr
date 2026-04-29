@@ -148,4 +148,45 @@ Spectator.describe Termify::Markdown::Stylesheet do
       expect(s2[Termify::Markdown::InlineElement::Bold].bold?).to be_true
     end
   end
+
+  # ── color_from (symbol color mapping) ───────────────────────────────────────
+
+  describe ".new (symbol constructor) color mapping" do
+    it "maps a fg color symbol to the correct Colorize::ColorANSI value" do
+      sheet = Termify::Markdown::Stylesheet.new({:paragraph => {fg: :cyan}})
+      expect(sheet[Termify::Markdown::BlockElement::Paragraph].fg).to eq(Colorize::ColorANSI::Cyan)
+    end
+
+    it "maps a fg color string to the correct Colorize::ColorANSI value" do
+      sheet = Termify::Markdown::Stylesheet.new({:paragraph => {fg: "red"}})
+      expect(sheet[Termify::Markdown::BlockElement::Paragraph].fg).to eq(Colorize::ColorANSI::Red)
+    end
+
+    it "maps a bg color symbol to the correct Colorize::ColorANSI value" do
+      sheet = Termify::Markdown::Stylesheet.new({:code_block => {bg: :dark_gray}})
+      expect(sheet[Termify::Markdown::BlockElement::CodeBlock].bg).to eq(Colorize::ColorANSI::DarkGray)
+    end
+
+    it "passes a Colorize::Color value through unchanged" do
+      sheet = Termify::Markdown::Stylesheet.new({:paragraph => {fg: Colorize::ColorANSI::Green}})
+      expect(sheet[Termify::Markdown::BlockElement::Paragraph].fg).to eq(Colorize::ColorANSI::Green)
+    end
+
+    it "passes a Color256 value through unchanged" do
+      color = Colorize::Color256.new(202)
+      sheet = Termify::Markdown::Stylesheet.new({:paragraph => {fg: color}})
+      expect(sheet[Termify::Markdown::BlockElement::Paragraph].fg).to eq(color)
+    end
+
+    it "maps nil fg to nil" do
+      sheet = Termify::Markdown::Stylesheet.new({:paragraph => {bold: true}})
+      expect(sheet[Termify::Markdown::BlockElement::Paragraph].fg).to be_nil
+    end
+
+    it "raises for an unknown color symbol" do
+      expect_raises(Exception) do
+        Termify::Markdown::Stylesheet.new({:paragraph => {fg: :not_a_color}})
+      end
+    end
+  end
 end
