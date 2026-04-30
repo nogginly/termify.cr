@@ -146,6 +146,7 @@ module Termify
           @block_mode = BlockMode::Normal
         else
           emit_raw(BlockElement::CodeBlock, stripped)
+          @current_line_empty = false
         end
         true
       end
@@ -202,8 +203,11 @@ module Termify
 
       private def flush_table : Nil
         close_block(nil)
-        indent = @list_stack.empty? ? 0 : @list_stack.last[:content_indent]
-        TableRenderer.render(@table_rows, @table_col_alignments, @io, indent) unless @table_rows.empty?
+        unless @table_rows.empty?
+          indent = @list_stack.empty? ? 0 : @list_stack.last[:content_indent]
+          TableRenderer.render(@table_rows, @table_col_alignments, @io, indent)
+          @current_line_empty = false
+        end
         @table_rows.clear
         @block_mode = BlockMode::Normal
       end
@@ -230,6 +234,7 @@ module Termify
           process_list_item(line)
         elsif BLOCK_HTML.matches?(line)
           emit_raw(BlockElement::BlockHtml, line.strip)
+          @current_line_empty = false
         else
           emit_styled(BlockElement::Paragraph, line)
         end
@@ -661,6 +666,7 @@ module Termify
         ansi = style.to_ansi
         reset = ansi.empty? ? "" : ANSI::RESET
         @io << ansi << list_prefix << render_inline(content, style) << reset << (style.line_suffix || "") << '\n'
+        @current_line_empty = false
       end
     end
   end
