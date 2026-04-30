@@ -193,7 +193,8 @@ module Termify
       end
 
       private def flush_table : Nil
-        TableRenderer.render(@table_rows, @table_col_alignments, @io) unless @table_rows.empty?
+        indent = @list_stack.empty? ? 0 : @list_stack.last[:content_indent]
+        TableRenderer.render(@table_rows, @table_col_alignments, @io, indent) unless @table_rows.empty?
         @table_rows.clear
         @block_mode = BlockMode::Normal
       end
