@@ -860,4 +860,110 @@ Spectator.describe Termify::Markdown::Renderer do
       end
     end
   end
+
+  # -------------------------------------------------------------------------
+  # Tables
+  # -------------------------------------------------------------------------
+  describe "tables" do
+    it "renders cell content" do
+      output = render_block("Name | Age\n-----|----\nAlice | 30\n")
+      expect(output).to contain("Name")
+      expect(output).to contain("Age")
+      expect(output).to contain("Alice")
+      expect(output).to contain("30")
+    end
+
+    it "supports leading pipe syntax" do
+      output = render_block("| X | Y |\n|---|---|\n| a | b |\n")
+      expect(output).to contain("X")
+      expect(output).to contain("Y")
+      expect(output).to contain("a")
+      expect(output).to contain("b")
+    end
+
+    it "renders inline markup inside a cell" do
+      output = render_block("Header\n------\n**bold cell**\n")
+      expect(output).to contain("bold cell")
+      expect(output).to contain(ANSI::BOLD)
+    end
+
+    it "terminates on a non-table line and renders what follows normally" do
+      output = render_block("A | B\n--|--\n1 | 2\n\nfollowing paragraph\n")
+      expect(output).to contain("following paragraph")
+    end
+
+    it "renders a table inside a list continuation" do
+      output = render_block("1. item\n\n   A | B\n   --|--\n   1 | 2\n")
+      expect(output).to contain("item")
+      expect(output).to contain("A")
+      expect(output).to contain("1")
+    end
+
+    it "indents a table inside a nested list item" do
+      # Nested item has content_indent > 0; table should be indented
+      output = render_block("- outer\n  - inner\n\n    A | B\n    --|--\n    1 | 2\n")
+      expect(output).to contain("A")
+      expect(output).to contain("1")
+      # Check that output lines containing table content have leading spaces
+      table_line = output.split('\n').find { |l| l.includes?("A") && l.includes?("B") }
+      expect(table_line).not_to be_nil
+      expect(table_line.not_nil!.starts_with?(" ")).to be_true
+    end
+  end
+
+  # -------------------------------------------------------------------------
+  # Blockquote continuation
+  # -------------------------------------------------------------------------
+  describe "blockquote" do
+    it "renders consecutive blockquote lines as a single block" do
+      output = render_block("> line one\n> line two\n")
+      expect(output).to contain("line one")
+      expect(output).to contain("line two")
+    end
+
+    it "two blockquotes separated by a blank line both render" do
+      output = render_block("> first\n\n> second\n")
+      expect(output).to contain("first")
+      expect(output).to contain("second")
+    end
+  end
+
+  # -------------------------------------------------------------------------
+  # Blank line behaviour
+  # -------------------------------------------------------------------------
+  describe "blank lines" do
+    it "multiple consecutive blank lines do not produce more than one blank line of output each" do
+      output = render_block("para one\n\n\n\npara two\n")
+      expect(output).to contain("para one")
+      expect(output).to contain("para two")
+      # At most 4 newlines: end of para one (\n), up to 3 blank lines (\n\n\n).
+      # With collapsing, should be far fewer. Assert no 5-in-a-row.
+      expect(output).to_not contain("\n\n\n\n\n")
+    end
+
+    it "a blank line between paragraphs produces a single blank output line" do
+      output = render_block("first\n\nsecond\n")
+      idx_first = output.index("first").not_nil!
+      idx_second = output.index("second").not_nil!
+      between = output[idx_first + "first".size...idx_second]
+      expect(between).to eq("\n\n")
+    end
+  end
+
+  # -------------------------------------------------------------------------
+  # newline_after at document end
+  # -------------------------------------------------------------------------
+  describe "newline_after at document end" do
+    it "emits a trailing blank line when the last block has newline_after" do
+      sheet = Termify::Markdown::Stylesheet.new
+      sheet[Termify::Markdown::BlockElement::Paragraph] =
+        Termify::Markdown::BlockStyle.new(newline_after: true)
+      output = String.build do |io|
+        r = Termify::Markdown::Renderer.new(io, sheet)
+        r << "final paragraph\n"
+        r.close
+      end
+      expect(output.ends_with?("\n\n")).to be_true
+    end
+  end
 end
