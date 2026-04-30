@@ -141,11 +141,81 @@ Spectator.describe Termify::Markdown::Stylesheet do
       expect(s.fg).not_to be_nil
     end
 
+    it "newline_before and newline_after are false for all entries in the default theme" do
+      Termify::Markdown::BlockElement.each do |elem|
+        s = sheet[elem]
+        expect(s.newline_before?).to be_false
+        expect(s.newline_after?).to be_false
+      end
+    end
+
     it "each call to .default returns an independent instance" do
       s1 = Termify::Markdown::Stylesheet.default
       s2 = Termify::Markdown::Stylesheet.default
       s1[Termify::Markdown::InlineElement::Bold] = Termify::Markdown::InlineStyle::NONE
       expect(s2[Termify::Markdown::InlineElement::Bold].bold?).to be_true
+    end
+  end
+
+  # ── newline_before / newline_after rendering ─────────────────────────────────
+
+  describe "newline_before and newline_after collapse at block boundaries" do
+    it "emits one blank line between two blocks when outgoing has newline_after" do
+      sheet = Termify::Markdown::Stylesheet.new
+      sheet[Termify::Markdown::BlockElement::H1] =
+        Termify::Markdown::BlockStyle.new(bold: true, newline_after: true)
+      sheet[Termify::Markdown::BlockElement::Paragraph] =
+        Termify::Markdown::BlockStyle.new
+      output = String.build do |io|
+        r = Termify::Markdown::Renderer.new(io, sheet)
+        r << "# Heading\nParagraph text\n"
+        r.close
+      end
+      # One blank line between heading and paragraph, not two
+      expect(output).to contain("\n\nParagraph")
+      expect(output).not_to contain("\n\n\nParagraph")
+    end
+
+    it "emits one blank line between two blocks when incoming has newline_before" do
+      sheet = Termify::Markdown::Stylesheet.new
+      sheet[Termify::Markdown::BlockElement::H1] =
+        Termify::Markdown::BlockStyle.new(bold: true)
+      sheet[Termify::Markdown::BlockElement::Paragraph] =
+        Termify::Markdown::BlockStyle.new(newline_before: true)
+      output = String.build do |io|
+        r = Termify::Markdown::Renderer.new(io, sheet)
+        r << "# Heading\nParagraph text\n"
+        r.close
+      end
+      expect(output).to contain("\n\nParagraph")
+      expect(output).not_to contain("\n\n\nParagraph")
+    end
+
+    it "emits only one blank line when both outgoing newline_after and incoming newline_before are set" do
+      sheet = Termify::Markdown::Stylesheet.new
+      sheet[Termify::Markdown::BlockElement::H1] =
+        Termify::Markdown::BlockStyle.new(bold: true, newline_after: true)
+      sheet[Termify::Markdown::BlockElement::Paragraph] =
+        Termify::Markdown::BlockStyle.new(newline_before: true)
+      output = String.build do |io|
+        r = Termify::Markdown::Renderer.new(io, sheet)
+        r << "# Heading\nParagraph text\n"
+        r.close
+      end
+      expect(output).to contain("\n\nParagraph")
+      expect(output).not_to contain("\n\n\nParagraph")
+    end
+
+    it "does not accumulate blank lines between same-type blocks separated by a blank line" do
+      sheet = Termify::Markdown::Stylesheet.new
+      sheet[Termify::Markdown::BlockElement::Blockquote] =
+        Termify::Markdown::BlockStyle.new(newline_before: true, newline_after: true)
+      output = String.build do |io|
+        r = Termify::Markdown::Renderer.new(io, sheet)
+        r << "> Note\n\n> Warning\n"
+        r.close
+      end
+      expect(output).not_to contain("\n\n\n")
     end
   end
 
@@ -181,6 +251,23 @@ Spectator.describe Termify::Markdown::Stylesheet do
     it "maps nil fg to nil" do
       sheet = Termify::Markdown::Stylesheet.new({:paragraph => {bold: true}})
       expect(sheet[Termify::Markdown::BlockElement::Paragraph].fg).to be_nil
+    end
+
+    it "maps newline_before: true correctly" do
+      sheet = Termify::Markdown::Stylesheet.new({:paragraph => {newline_before: true}})
+      expect(sheet[Termify::Markdown::BlockElement::Paragraph].newline_before?).to be_true
+    end
+
+    it "maps newline_after: true correctly" do
+      sheet = Termify::Markdown::Stylesheet.new({:paragraph => {newline_after: true}})
+      expect(sheet[Termify::Markdown::BlockElement::Paragraph].newline_after?).to be_true
+    end
+
+    it "defaults newline_before and newline_after to false when absent" do
+      sheet = Termify::Markdown::Stylesheet.new({:paragraph => {bold: true}})
+      s = sheet[Termify::Markdown::BlockElement::Paragraph]
+      expect(s.newline_before?).to be_false
+      expect(s.newline_after?).to be_false
     end
 
     it "raises for an unknown color symbol" do

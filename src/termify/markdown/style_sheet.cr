@@ -70,6 +70,8 @@ module Termify
           bg: color_from(opts["bg"]?),
           line_prefix: opts["line_prefix"]?,
           line_suffix: opts["line_suffix"]?,
+          newline_before: opts["newline_before"]? || false,
+          newline_after: opts["newline_after"]? || false,
         )
       end
 

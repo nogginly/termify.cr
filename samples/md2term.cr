@@ -4,9 +4,9 @@ USAGE = "Usage: md2term <MARKDOWNFILE>\nRead a Markdown file and render to termi
 md_file = ARGV[0]? || abort(USAGE)
 
 ss = Termify::Markdown::Stylesheet.new({
-  :h1          => {bold: true, line_prefix: "# ".colorize(:dark_gray).to_s},
-  :h2          => {bold: true, line_prefix: "## ".colorize(:dark_gray).to_s},
-  :h3          => {bold: true, line_prefix: "### ".colorize(:dark_gray).to_s},
+  :h1          => {bold: true, line_prefix: "# ".colorize(:dark_gray).to_s, newline_after: true},
+  :h2          => {bold: true, line_prefix: "## ".colorize(:dark_gray).to_s, newline_after: true, newline_before: true},
+  :h3          => {bold: true, line_prefix: "### ".colorize(:dark_gray).to_s, newline_after: true, newline_before: true},
   :h4          => {bold: true, line_prefix: "#### ".colorize(:dark_gray).to_s},
   :h5          => {bold: true},
   :h6          => {bold: true},
@@ -14,7 +14,8 @@ ss = Termify::Markdown::Stylesheet.new({
   :code_inline => {fg: :red},
   :html_tag    => {dim: true},
   :block_html  => {dim: true},
-  :block_quote => {prefix: "│ "},
+  :list_item   => {newline_after: true, newline_before: true},
+  :block_quote => {line_prefix: "│ ", newline_after: true, newline_before: true},
 })
 
 File.open(md_file, "r") do |file|

@@ -71,6 +71,7 @@ MARKDOWN = <<-MD
     --------|--------
     Value   | Value2
 
+4. Fourth item
 
 #### Checkboxes
 
@@ -148,17 +149,17 @@ This is inline <span style="color: red;">html</span>
 MD
 
 ss = Termify::Markdown::Stylesheet.new({
-  :h1          => {bold: true, line_prefix: "# "},
-  :h2          => {bold: true},
-  :h3          => {bold: true},
-  :h4          => {bold: true},
-  :h5          => {bold: true},
-  :h6          => {bold: true},
+  :h1          => {bold: true, line_prefix: "# ", newline_after: true},
+  :h2          => {bold: true, line_prefix: "## ", newline_after: true},
+  :h3          => {bold: true, line_prefix: "### ", newline_after: true},
+  :h4          => {bold: true, line_prefix: "=== ", line_suffix: " ===", newline_after: true},
+  :h5          => {bold: true, line_prefix: "--- ", line_suffix: " ---", newline_after: true},
+  :h6          => {bold: true, underline: true, newline_after: true},
   :code_block  => {fg: :light_blue, line_prefix: "~ "},
   :code_inline => {fg: :red},
   :html_tag    => {dim: true},
   :block_html  => {dim: true},
-  :block_quote => {prefix: "│ "},
+  :block_quote => {line_prefix: "│ "},
 })
 
 Termify.render_markdown(STDOUT, ss) do |io|

@@ -77,6 +77,13 @@ module Termify
         @table_col_alignments = [] of TableRenderer::ColumnAlignment
         @list_stack = [] of NamedTuple(indent: Int32, ordered: Bool, counter: Int32, content_indent: Int32)
         @list_pending_blank = false
+        @current_block = nil.as(BlockElement?)
+
+        # Need to track if current line is empty so we can
+        # ensure blank lines don't accumulate, and ensure that
+        # block newline-based margin (via newline_before/newline_after)
+        # merging works properly with blank lines.
+        @current_line_empty = false
       end
 
       # Accepts the next chunk of Markdown. May be any size -- a single byte
@@ -96,6 +103,7 @@ module Termify
         remainder = @buf.to_s
         process_line(remainder) unless remainder.empty?
         flush_table if @block_mode.table?
+        close_block(nil)
       end
 
       def closed? : Bool
@@ -193,6 +201,7 @@ module Termify
       end
 
       private def flush_table : Nil
+        close_block(nil)
         indent = @list_stack.empty? ? 0 : @list_stack.last[:content_indent]
         TableRenderer.render(@table_rows, @table_col_alignments, @io, indent) unless @table_rows.empty?
         @table_rows.clear
@@ -221,14 +230,51 @@ module Termify
           process_list_item(line)
         elsif BLOCK_HTML.matches?(line)
           emit_raw(BlockElement::BlockHtml, line.strip)
-        elsif line.empty?
-          @io << '\n'
         else
           emit_styled(BlockElement::Paragraph, line)
         end
       end
 
+      # Called when the first line of a new semantic block arrives.
+      # Closes the previous block (emitting newline_after if set), then
+      # emits newline_before for the incoming block, OR-collapsed with
+      # newline_after of the outgoing block so at most one blank line appears.
+      private def open_block(element : BlockElement) : Nil
+        return if @current_block == element
+        unless @current_line_empty
+          incoming = @stylesheet[element]
+          outgoing_after = if prev = @current_block
+                             @stylesheet[prev].newline_after?
+                           else
+                             false
+                           end
+          if outgoing_after || incoming.newline_before?
+            @current_line_empty = true # sometimes we write an empty line, so remember that
+            @io << '\n'
+          end
+        end
+        @current_block = element
+      end
+
+      # Called when the current block is known to be finished (blank line,
+      # close, exit_list, flush_table). Resets tracking; newline_after is
+      # handled by open_block for the next block via OR-collapse, or by
+      # close when the document ends.
+      private def close_block(element : BlockElement?) : Nil
+        if element.nil? && (prev = @current_block) && !@current_line_empty
+          if @stylesheet[prev].newline_after?
+            @current_line_empty = true # sometimes we write an empty line, so remember that
+            @io << '\n'
+          end
+        end
+        @current_block = element
+      end
+
       private def emit_styled(element : BlockElement, text : String, io = @io, chomp = false) : Nil
+        open_block(element) if io.same?(@io)
+
+        return if text.empty? && @current_line_empty
+
         style = @stylesheet[element]
         ansi = style.to_ansi
         prefix = style.line_prefix || ""
@@ -236,11 +282,15 @@ module Termify
         list_indent = io.same?(@io) ? list_visual_indent : ""
         io << ansi << list_indent << prefix << render_inline(text, style) << reset << style.line_suffix
         io << '\n' unless chomp
+
+        # sometimes we write an empty line, so remember that
+        @current_line_empty = text.empty?
       end
 
       # Emits *text* verbatim -- no inline parsing. Used for code fence body
       # lines where delimiters are content, not markup.
       private def emit_raw(element : BlockElement, text : String) : Nil
+        open_block(element)
         style = @stylesheet[element]
         ansi = style.to_ansi
         prefix = style.line_prefix || ""
@@ -501,6 +551,7 @@ module Termify
       # Clears list nesting state. Called on any non-continuation, non-list line.
       # Blank lines within a list item are swallowed (loose list termination deferred).
       private def exit_list : Nil
+        close_block(nil)
         @list_stack.clear
         @list_pending_blank = false
       end
@@ -605,6 +656,7 @@ module Termify
 
       # Emits one list item using ListItem stylesheet style but a dynamic prefix.
       private def emit_list_item(content : String, list_prefix : String) : Nil
+        open_block(BlockElement::ListItem)
         style = @stylesheet[BlockElement::ListItem]
         ansi = style.to_ansi
         reset = ansi.empty? ? "" : ANSI::RESET
