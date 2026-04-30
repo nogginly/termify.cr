@@ -11,4 +11,10 @@ module Termify
     yield md_io
     md_io.close
   end
+
+  # :nodoc:
+  module Version
+    VERSION    = {{ `shards version #{__DIR__}`.chomp.stringify }}
+    PRERELEASE = VERSION.match(/^\d+\.\d+\.\d+$/).nil?
+  end
 end
