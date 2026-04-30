@@ -16,7 +16,7 @@ ss = Termify::Markdown::Stylesheet.new({
   :block_html  => {dim: true},
   :list_item   => {newline_after: true, newline_before: true},
   :block_quote => {line_prefix: "│ ", newline_after: true, newline_before: true},
-})
+}, merge: Termify::Markdown::Stylesheet.default)
 
 File.open(md_file, "r") do |file|
   Termify.render_markdown(STDOUT, ss) do |md_io|

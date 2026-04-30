@@ -43,9 +43,9 @@ module Termify
 
       # Symbol constructor -- maps {:h1 => {bold: true}, :bold => {bold: true}}
       # to the correct enum automatically. Raises for unknown symbols.
-      def initialize(styles : Hash(Symbol, NamedTuple))
-        @block_styles = {} of BlockElement => BlockStyle
-        @inline_styles = {} of InlineElement => InlineStyle
+      def initialize(styles : Hash(Symbol, NamedTuple), merge : Stylesheet? = nil)
+        @block_styles = merge.try(&.@block_styles.dup) || {} of BlockElement => BlockStyle
+        @inline_styles = merge.try(&.@inline_styles.dup) || {} of InlineElement => InlineStyle
         styles.each do |sym, opts|
           key = sym.to_s
           if elem = BlockElement.parse?(key)
