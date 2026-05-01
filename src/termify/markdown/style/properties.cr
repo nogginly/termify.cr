@@ -11,8 +11,8 @@ module Termify
 
     # fg/bg color attributes. Included by all style types.
     module ColorProperties
-      getter fg : Colorize::Color?
-      getter bg : Colorize::Color?
+      getter fg : ANSI::Color?
+      getter bg : ANSI::Color?
     end
 
     # Per-line and per-block decoration for block elements only.

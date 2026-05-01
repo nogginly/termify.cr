@@ -148,14 +148,14 @@ This is inline <span style="color: red;">html</span>
 
 MD
 
-ss = Termify::Markdown::Stylesheet.new({
-  :h1          => {bold: true, line_prefix: "# ", newline_after: true},
+ss = Termify.markdown_stylesheet({
+  :h1          => {bold: true, line_prefix: "# ", newline_after: true, fg: "#aa01ff"},
   :h2          => {bold: true, line_prefix: "## ", newline_after: true},
   :h3          => {bold: true, line_prefix: "### ", newline_after: true},
   :h4          => {bold: true, line_prefix: "=== ", line_suffix: " ===", newline_after: true},
   :h5          => {bold: true, line_prefix: "--- ", line_suffix: " ---", newline_after: true},
   :h6          => {bold: true, underline: true, newline_after: true},
-  :code_block  => {fg: :light_blue, line_prefix: "~ "},
+  :code_block  => {fg: "rosy_brown", line_prefix: "~ "},
   :code_inline => {fg: :red},
   :html_tag    => {dim: true},
   :block_html  => {dim: true},

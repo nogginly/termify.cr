@@ -41,9 +41,9 @@ module Termify
         @inline_styles = inline_styles
       end
 
-      # Symbol constructor -- maps {:h1 => {bold: true}, :bold => {bold: true}}
+      # Symbol/String constructor -- maps {:h1 => {bold: true}, "bold" => {bold: true}}
       # to the correct enum automatically. Raises for unknown symbols.
-      def initialize(styles : Hash(Symbol, NamedTuple), merge : Stylesheet? = nil)
+      def initialize(styles : Hash(Symbol | String, NamedTuple), merge : Stylesheet? = nil)
         if merge.nil?
           @block_styles = {} of BlockElement => BlockStyle
           @inline_styles = {} of InlineElement => InlineStyle
@@ -95,10 +95,22 @@ module Termify
       end
 
       # Convert color value from symbol/string
-      private def color_from(value : Symbol | String | Colorize::Color | Nil)
+      private def color_from(value : Symbol | String | ANSI::Color | Nil)
         case value
-        when Symbol, String then Colorize::ColorANSI.parse(value.to_s)
-        else                     value
+        when Symbol, String
+          case color = value.to_s
+          when /#[0-9a-f]{6}/
+            rgb = color[1..-1]
+            Colorize::ColorRGB.new(
+              red: rgb[0..1].to_u8(16),
+              green: rgb[2..3].to_u8(16),
+              blue: rgb[4..5].to_u8(16))
+          else
+            Colorize::ColorANSI.parse?(value.to_s) ||
+              ANSI::Color256.parse(value.to_s)
+          end
+        else
+          value
         end
       end
 

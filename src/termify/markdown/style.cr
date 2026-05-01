@@ -25,8 +25,8 @@ module Termify
         @dim : Bool = false,
         @underline : Bool = false,
         @strikethrough : Bool = false,
-        @fg : Colorize::Color? = nil,
-        @bg : Colorize::Color? = nil,
+        @fg : ANSI::Color? = nil,
+        @bg : ANSI::Color? = nil,
       )
       end
 
