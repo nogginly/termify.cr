@@ -48,8 +48,8 @@ module Termify
           @block_styles = {} of BlockElement => BlockStyle
           @inline_styles = {} of InlineElement => InlineStyle
         else
-          @block_styles = merge.@block_styles
-          @inline_styles = merge.@inline_styles
+          @block_styles = merge.@block_styles.dup
+          @inline_styles = merge.@inline_styles.dup
         end
 
         styles.each do |sym, opts|
