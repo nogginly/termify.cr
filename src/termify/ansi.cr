@@ -1,12 +1,16 @@
 require "colorize"
 
+require "./ansi/*"
+
 module Termify
   # Single source of truth for all ANSI escape sequences.
   # The renderer and stylesheet never hardcode sequences — they reference this module.
   #
-  # Colors are expressed as Colorize::Color values (ColorANSI, Color256, ColorRGB).
+  # Colors are expressed as ANSI::Color values (ColorANSI, Color256, ColorRGB).
   # Use ANSI.fg / ANSI.bg to convert them to escape sequences.
   module ANSI
+    alias Color = Colorize::Color | Color256
+
     # -------------------------------------------------------------------------
     # SGR attributes
     # -------------------------------------------------------------------------
@@ -19,32 +23,26 @@ module Termify
     STRIKETHROUGH = "\e[9m"
 
     # -------------------------------------------------------------------------
-    # Color helpers -- convert Colorize::Color to ANSI escape sequences.
+    # Color helpers -- convert ANSI::Color to ANSI escape sequences.
     # ColorANSI values are the fg codes directly; bg = fg + 10.
     # Color256 and ColorRGB use the extended-color escape format.
     # -------------------------------------------------------------------------
 
-    def self.fg(color : Colorize::Color) : String
+    def self.fg(color : ANSI::Color) : String
       case color
-      when Colorize::ColorANSI
-        "\e[#{color.value}m"
-      when Colorize::Color256
-        "\e[38;5;#{color.value}m"
-      when Colorize::ColorRGB
-        "\e[38;2;#{color.red};#{color.green};#{color.blue}m"
+      when Colorize::ColorANSI          then "\e[#{color.value}m"
+      when Colorize::Color256, Color256 then "\e[38;5;#{color.value}m"
+      when Colorize::ColorRGB           then "\e[38;2;#{color.red};#{color.green};#{color.blue}m"
       else
         ""
       end
     end
 
-    def self.bg(color : Colorize::Color) : String
+    def self.bg(color : ANSI::Color) : String
       case color
-      when Colorize::ColorANSI
-        "\e[#{color.value + 10}m"
-      when Colorize::Color256
-        "\e[48;5;#{color.value}m"
-      when Colorize::ColorRGB
-        "\e[48;2;#{color.red};#{color.green};#{color.blue}m"
+      when Colorize::ColorANSI          then "\e[#{color.value + 10}m"
+      when Colorize::Color256, Color256 then "\e[48;5;#{color.value}m"
+      when Colorize::ColorRGB           then "\e[48;2;#{color.red};#{color.green};#{color.blue}m"
       else
         ""
       end
