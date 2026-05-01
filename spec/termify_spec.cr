@@ -46,4 +46,34 @@ Spectator.describe Termify do
       expect(io.to_s).to contain("\e[36m")
     end
   end
+
+  describe ".markdown_stylesheet" do
+    it "returns a Stylesheet" do
+      expect(Termify.markdown_stylesheet({} of Symbol => NamedTuple())).to be_a(Termify::Markdown::Stylesheet)
+    end
+
+    it "defaults to Stylesheet.default for unmapped entries" do
+      sheet = Termify.markdown_stylesheet({} of Symbol => NamedTuple())
+      # H1 is bold in the default theme
+      expect(sheet[Termify::Markdown::BlockElement::H1].bold?).to be_true
+    end
+
+    it "applies caller-supplied overrides over the default theme" do
+      sheet = Termify.markdown_stylesheet({:paragraph => {bold: true}})
+      expect(sheet[Termify::Markdown::BlockElement::Paragraph].bold?).to be_true
+    end
+
+    it "does not mutate the default stylesheet when overrides are applied" do
+      Termify.markdown_stylesheet({:paragraph => {bold: true}})
+      expect(Termify::Markdown::Stylesheet.default[Termify::Markdown::BlockElement::Paragraph])
+        .to eq(Termify::Markdown::BlockStyle::NONE)
+    end
+
+    it "accepts a custom merge: base instead of the default" do
+      custom_base = Termify::Markdown::Stylesheet.new({:h1 => {italic: true}})
+      sheet = Termify.markdown_stylesheet({:paragraph => {bold: true}}, custom_base)
+      expect(sheet[Termify::Markdown::BlockElement::H1].italic?).to be_true
+      expect(sheet[Termify::Markdown::BlockElement::Paragraph].bold?).to be_true
+    end
+  end
 end

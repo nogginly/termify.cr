@@ -248,6 +248,27 @@ Spectator.describe Termify::Markdown::Stylesheet do
       expect(sheet[Termify::Markdown::BlockElement::Paragraph].fg).to eq(color)
     end
 
+    it "maps a lowercase hex string to a ColorRGB value" do
+      sheet = Termify::Markdown::Stylesheet.new({:paragraph => {fg: "#ff8000"}})
+      result = sheet[Termify::Markdown::BlockElement::Paragraph].fg
+      expect(result).to be_a(Colorize::ColorRGB)
+      rgb = result.as(Colorize::ColorRGB)
+      expect(rgb.red).to eq(0xff_u8)
+      expect(rgb.green).to eq(0x80_u8)
+      expect(rgb.blue).to eq(0x00_u8)
+    end
+
+    it "maps a Color256 name string to an ANSI::Color256 value" do
+      sheet = Termify::Markdown::Stylesheet.new({:paragraph => {fg: "DeepSkyBlue1"}})
+      expect(sheet[Termify::Markdown::BlockElement::Paragraph].fg).to be_a(Termify::ANSI::Color256)
+    end
+
+    it "maps a named ANSI::Color256 enum value through unchanged" do
+      color = Termify::ANSI::Color256::Red
+      sheet = Termify::Markdown::Stylesheet.new({:paragraph => {fg: color}})
+      expect(sheet[Termify::Markdown::BlockElement::Paragraph].fg).to eq(color)
+    end
+
     it "maps nil fg to nil" do
       sheet = Termify::Markdown::Stylesheet.new({:paragraph => {bold: true}})
       expect(sheet[Termify::Markdown::BlockElement::Paragraph].fg).to be_nil
@@ -274,6 +295,57 @@ Spectator.describe Termify::Markdown::Stylesheet do
       expect_raises(Exception) do
         Termify::Markdown::Stylesheet.new({:paragraph => {fg: :not_a_color}})
       end
+    end
+  end
+
+  # -- .new(styles, merge:) -------------------------------------------------------
+
+  describe ".new with merge:" do
+    it "inherits entries from the base stylesheet" do
+      base = Termify::Markdown::Stylesheet.new({:paragraph => {bold: true}})
+      derived = Termify::Markdown::Stylesheet.new({} of Symbol => NamedTuple(), merge: base)
+      expect(derived[Termify::Markdown::BlockElement::Paragraph].bold?).to be_true
+    end
+
+    it "overrides a base entry with the new value" do
+      base = Termify::Markdown::Stylesheet.new({:paragraph => {bold: true}})
+      derived = Termify::Markdown::Stylesheet.new({:paragraph => {italic: true}}, merge: base)
+      result = derived[Termify::Markdown::BlockElement::Paragraph]
+      expect(result.bold?).to be_false
+      expect(result.italic?).to be_true
+    end
+
+    it "does not mutate the base stylesheet when adding a new entry" do
+      base = Termify::Markdown::Stylesheet.new({:paragraph => {bold: true}})
+      Termify::Markdown::Stylesheet.new({:blockquote => {italic: true}}, merge: base)
+      expect(base[Termify::Markdown::BlockElement::Blockquote]).to eq(Termify::Markdown::BlockStyle::NONE)
+    end
+
+    it "does not mutate the base stylesheet when overriding an existing entry" do
+      base = Termify::Markdown::Stylesheet.new({:paragraph => {bold: true}})
+      Termify::Markdown::Stylesheet.new({:paragraph => {italic: true}}, merge: base)
+      expect(base[Termify::Markdown::BlockElement::Paragraph].bold?).to be_true
+      expect(base[Termify::Markdown::BlockElement::Paragraph].italic?).to be_false
+    end
+
+    it "falls back to NONE for elements absent from both base and overrides" do
+      base = Termify::Markdown::Stylesheet.new({:paragraph => {bold: true}})
+      derived = Termify::Markdown::Stylesheet.new({} of Symbol => NamedTuple(), merge: base)
+      expect(derived[Termify::Markdown::BlockElement::H1]).to eq(Termify::Markdown::BlockStyle::NONE)
+    end
+
+    it "works correctly with Stylesheet.default as the base" do
+      derived = Termify::Markdown::Stylesheet.new({:paragraph => {bold: true}},
+        merge: Termify::Markdown::Stylesheet.default)
+      expect(derived[Termify::Markdown::BlockElement::Paragraph].bold?).to be_true
+      # default H1 entry should still be present
+      expect(derived[Termify::Markdown::BlockElement::H1].bold?).to be_true
+    end
+
+    it "does not mutate Stylesheet.default when used as base" do
+      base = Termify::Markdown::Stylesheet.default
+      Termify::Markdown::Stylesheet.new({:paragraph => {bold: true}}, merge: base)
+      expect(base[Termify::Markdown::BlockElement::Paragraph]).to eq(Termify::Markdown::BlockStyle::NONE)
     end
   end
 end

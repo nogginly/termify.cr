@@ -101,6 +101,42 @@ Spectator.describe Termify::ANSI do
     end
   end
 
+  describe "ANSI::Color256 enum" do
+    # Enum values are auto-assigned from 0; spot-check canonical 256-color indices.
+    it "Black is index 0" do
+      expect(Termify::ANSI::Color256::Black.value).to eq(0)
+    end
+
+    it "Red is index 9" do
+      expect(Termify::ANSI::Color256::Red.value).to eq(9)
+    end
+
+    it "Blue is index 12" do
+      expect(Termify::ANSI::Color256::Blue.value).to eq(12)
+    end
+
+    it "White is index 15" do
+      expect(Termify::ANSI::Color256::White.value).to eq(15)
+    end
+
+    describe ".fg" do
+      it "produces the correct 256-color foreground sequence for a named Color256" do
+        expect(Termify::ANSI.fg(Termify::ANSI::Color256::Red)).to eq("\e[38;5;9m")
+      end
+
+      it "produces the correct 256-color foreground sequence for a high-index Color256" do
+        # Grey93 is the last entry, index 255
+        expect(Termify::ANSI.fg(Termify::ANSI::Color256::Grey93)).to eq("\e[38;5;255m")
+      end
+    end
+
+    describe ".bg" do
+      it "produces the correct 256-color background sequence for a named Color256" do
+        expect(Termify::ANSI.bg(Termify::ANSI::Color256::Blue)).to eq("\e[48;5;12m")
+      end
+    end
+  end
+
   describe ".truecolor_supported?" do
     context "when COLORTERM=truecolor" do
       it "returns true" do
