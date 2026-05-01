@@ -12,6 +12,13 @@ module Termify
     md_io.close
   end
 
+  # Convenience method to define a new Markdown stylesheet via the hash map of element names to
+  # respective style definitions. Merges with the default stylesheet by default.
+  def self.markdown_stylesheet(styles : Hash(Symbol | String, NamedTuple),
+                               merge = Markdown::Stylesheet.default)
+    Markdown::Stylesheet.new(styles, merge)
+  end
+
   # :nodoc:
   module Version
     VERSION    = {{ `shards version #{__DIR__}`.chomp.stringify }}
