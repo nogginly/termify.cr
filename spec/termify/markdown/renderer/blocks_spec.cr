@@ -179,6 +179,12 @@ Spectator.describe Termify::Markdown::Renderer do
       # 4-space indent is not a fence -- falls through to paragraph
       expect(output).to_not contain("\e[97m")
     end
+
+    it "ignores the language tag on the opening fence line" do
+      output = render_block("```crystal\nsome code\n```\n")
+      expect(output).to contain("some code")
+      expect(output).to_not contain("crystal")
+    end
   end
 
   # -------------------------------------------------------------------------

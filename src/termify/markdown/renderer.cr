@@ -1,5 +1,6 @@
 require "./style_sheet"
 require "./table_renderer"
+require "./code_renderer"
 
 module Termify
   module Markdown
@@ -75,6 +76,7 @@ module Termify
         @fence_marker = ""
         @table_rows = [] of Array(String)
         @table_col_alignments = [] of TableRenderer::ColumnAlignment
+        @code_renderer = nil.as(CodeRenderer?)
         @list_stack = [] of NamedTuple(indent: Int32, ordered: Bool, counter: Int32, content_indent: Int32)
         @list_pending_blank = false
         @current_block = nil.as(BlockElement?)
@@ -143,9 +145,12 @@ module Termify
         return false unless @block_mode.code_fence?
         stripped = @list_stack.empty? ? line : strip_list_indent(line, @list_stack.last[:content_indent])
         if stripped.starts_with?(@fence_marker)
+          @code_renderer.try(&.close)
+          @code_renderer = nil
           @block_mode = BlockMode::Normal
         else
-          emit_raw(BlockElement::CodeBlock, stripped)
+          open_block(BlockElement::CodeBlock)
+          @code_renderer.try(&.feed(stripped))
           @current_line_empty = false
         end
         true
@@ -222,7 +227,15 @@ module Termify
         if m = line.match(HEADING)
           emit_styled(heading_element(m[1].size), m[2])
         elsif fence_start?(line)
-          @fence_marker = line.lstrip[0, 3]
+          fenced = line.lstrip
+          @fence_marker = fenced[0, 3]
+          language = fenced[3..].strip
+          @code_renderer = CodeRenderer.new(
+            language,
+            @stylesheet[BlockElement::CodeBlock],
+            @io,
+            list_visual_indent
+          )
           @block_mode = BlockMode::CodeFence
         elsif line.starts_with?("> ")
           emit_styled(BlockElement::Blockquote, line[2..])
@@ -292,8 +305,7 @@ module Termify
         @current_line_empty = text.empty?
       end
 
-      # Emits *text* verbatim -- no inline parsing. Used for code fence body
-      # lines where delimiters are content, not markup.
+      # Emits *text* verbatim -- no inline parsing. Used for block HTML.
       private def emit_raw(element : BlockElement, text : String) : Nil
         open_block(element)
         style = @stylesheet[element]
