@@ -102,7 +102,7 @@ module Termify
       private def color_from(value : Symbol | String | ANSI::Color | Nil)
         case value
         when Symbol, String
-          case color = value.to_s
+          case value.to_s
           when HEX_COLOR_RE
             rgb = $~[1]
             Colorize::ColorRGB.new(
