@@ -75,6 +75,7 @@ module Termify
         @buf = String::Builder.new
         @block_mode = BlockMode::Normal
         @fence_marker = ""
+        @fence_indent = 0
         @table_rows = [] of Array(String)
         @table_col_alignments = [] of TableRenderer::ColumnAlignment
         @code_renderer = nil.as(CodeRenderer?)
@@ -147,7 +148,10 @@ module Termify
       # the fence marker so indented fences work correctly.
       private def process_fence_line(line : String) : Bool
         return false unless @block_mode.code_fence?
-        stripped = @list_stack.empty? ? line : strip_list_indent(line, @list_stack.last[:content_indent])
+        # Only strip @fence_indent spaces if the line actually starts with them.
+        # Body lines in a top-level fence have no indent; this avoids slicing
+        # into content when a fence opens with leading spaces.
+        stripped = (@fence_indent > 0 && line.starts_with?(" " * @fence_indent)) ? line[@fence_indent..] : line
         if stripped.starts_with?(@fence_marker)
           @code_renderer.try(&.close)
           @code_renderer = nil
@@ -257,7 +261,7 @@ module Termify
         style = @stylesheet[BlockElement::Blockquote]
         ansi = style.to_ansi
         prefix = style.line_prefix || ""
-        wrapped_io = BlockquoteIO.new(@io, ansi + prefix)
+        wrapped_io = BlockquoteIO.new(@io, list_visual_indent + ansi + prefix)
         @quote_renderer = Renderer.new(wrapped_io, @stylesheet)
       end
 
@@ -277,6 +281,7 @@ module Termify
         elsif fence_start?(line)
           fenced = line.lstrip
           @fence_marker = fenced[0, 3]
+          @fence_indent = line.size - fenced.size
           language = fenced[3..].strip
           @code_renderer = CodeRenderer.new(
             language,
@@ -627,19 +632,19 @@ module Termify
 
         pending = @list_pending_blank
         @list_pending_blank = false
-        content_indent = @list_stack.last[:content_indent]
 
         if list_line?(line)
           flush_table if @block_mode.table?
           process_list_item(line)
           true
-        elsif list_continuation?(line, content_indent)
-          # Blockquote lines must only have leading whitespace stripped so the
-          # ">" prefix survives into dispatch_continuation. Stripping exactly
-          # content_indent chars would eat the ">" when the blockquote indented
-          # shallower than content_indent (common in practice).
-          stripped = line.lstrip.starts_with?(">") ? line.lstrip : strip_list_indent(line, content_indent)
-          dispatch_continuation(stripped)
+        elsif list_continuation?(line)
+          indent = line.size - line.lstrip.size
+          dispatch_continuation(line.lstrip)
+          # If the continuation opened a code fence, the line was already
+          # lstripped before dispatch so @fence_indent was set to 0. Patch it
+          # with the actual indent so process_fence_line can match the closing
+          # marker correctly.
+          @fence_indent = indent if @block_mode.code_fence?
           true
         else
           flush_table if @block_mode.table?
@@ -649,18 +654,11 @@ module Termify
         end
       end
 
-      # Returns true if *line* has enough leading whitespace to be a continuation
-      # block of the current list item. Blockquote lines (> prefix) with any
-      # positive indentation are also accepted as continuations.
-      private def list_continuation?(line : String, content_indent : Int32) : Bool
-        indent = line.size - line.lstrip.size
-        return true if indent > 0 && line.lstrip.starts_with?(">")
-        indent >= content_indent
-      end
-
-      # Strips exactly *n* leading characters from *line*.
-      private def strip_list_indent(line : String, n : Int32) : String
-        line.size >= n ? line[n..] : line.lstrip
+      # Returns true if *line* has any positive indentation, making it a
+      # continuation block of the current list item. list_line? is checked
+      # first so actual list items are never misidentified as continuations.
+      private def list_continuation?(line : String) : Bool
+        line.size - line.lstrip.size > 0
       end
 
       # Dispatches a continuation line (already de-indented) through the normal

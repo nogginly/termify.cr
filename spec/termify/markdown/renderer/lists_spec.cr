@@ -180,6 +180,29 @@ Spectator.describe Termify::Markdown::Renderer do
         expect(output).to contain("continuation")
       end
 
+      it "renders a continuation after multiple blank lines" do
+        output = render_block("1. item\n\n\n   continuation\n")
+        expect(output).to contain("item")
+        expect(output).to contain("continuation")
+      end
+
+      it "accepts a 2-space indented paragraph as a continuation (shallower than content_indent)" do
+        output = render_block("1. One\n  Paragraph in list item\n2. Two\n")
+        expect(output).to contain("One")
+        expect(output).to contain("Paragraph in list item")
+        expect(output).to contain("2. ")
+        # List must not restart at 1
+        expect(output.scan("1. ").size).to eq(1)
+      end
+
+      it "accepts a 2-space indented code fence as a continuation" do
+        output = render_block("1. Three\n  ```\n  Code block\n  ```\n2. Four\n")
+        expect(output).to contain("Three")
+        expect(output).to contain("Code block")
+        expect(output).to_not contain("```")
+        expect(output).to contain("2. ")
+      end
+
       it "renders an indented code fence as part of the same list item" do
         output = render_block("1. item\n\n   ```\n   code here\n   ```\n")
         expect(output).to contain("item")
@@ -241,6 +264,18 @@ Spectator.describe Termify::Markdown::Renderer do
         expect(output).to contain("| quoted")
         expect(output).to_not contain("| Three")
         expect(output).to_not contain("| Four")
+      end
+
+      it "indents the blockquote prefix after the list visual indent" do
+        sheet = Stylesheet.new({:blockquote => {line_prefix: "| "}},
+          merge: Stylesheet.default)
+        io = IO::Memory.new
+        r = Renderer.new(io, sheet)
+        r.feed("1. Three\n  > quoted\n2. Four\n")
+        r.close
+        output = io.to_s
+        # List visual indent (3 spaces for "1. ") must precede the blockquote prefix
+        expect(output.lines.select { |l| l.includes?("quoted") }.first).to match(/^\s+\| quoted/)
       end
 
       it "renders a blockquote with its own nested list inside a list item" do
