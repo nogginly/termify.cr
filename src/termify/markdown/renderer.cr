@@ -1,6 +1,7 @@
 require "./style_sheet"
 require "./table_renderer"
 require "./code_renderer"
+require "./blockquote_io"
 
 module Termify
   module Markdown
@@ -77,6 +78,7 @@ module Termify
         @table_rows = [] of Array(String)
         @table_col_alignments = [] of TableRenderer::ColumnAlignment
         @code_renderer = nil.as(CodeRenderer?)
+        @quote_renderer = nil.as(Renderer?)
         @list_stack = [] of NamedTuple(indent: Int32, ordered: Bool, counter: Int32, content_indent: Int32)
         @list_pending_blank = false
         @current_block = nil.as(BlockElement?)
@@ -104,6 +106,7 @@ module Termify
         flush_complete_lines
         remainder = @buf.to_s
         process_line(remainder) unless remainder.empty?
+        close_quote_renderer
         flush_table if @block_mode.table?
         close_block(nil)
       end
@@ -133,6 +136,7 @@ module Termify
         unless @list_stack.empty?
           return if handle_list_line(line)
         end
+        return if process_quote_line(line)
         return if process_table_line(line)
         dispatch_block(line)
       end
@@ -223,6 +227,50 @@ module Termify
         stripped.starts_with?("```") || stripped.starts_with?("~~~")
       end
 
+      # Handles a line that may belong to a blockquote. Returns true if consumed.
+      # A > prefix routes to the child renderer; a blank line is forwarded to
+      # the child if one is active; any other line closes the child and returns
+      # false so normal dispatch can proceed.
+      private def process_quote_line(line : String) : Bool
+        if line.starts_with?("> ")
+          open_quote_renderer
+          @quote_renderer.try(&.feed(line[2..] + "\n"))
+          true
+        elsif line.starts_with?(">")
+          open_quote_renderer
+          @quote_renderer.try(&.feed(line[1..] + "\n"))
+          true
+        else
+          # Blank lines and non-quote lines both close any deeper nesting and
+          # fall through. This ensures blank lines get prefix decoration at the
+          # correct depth rather than being forwarded one level too deep.
+          close_quote_renderer
+          false
+        end
+      end
+
+      # Opens a child Renderer writing through a BlockquoteIO prefix wrapper.
+      # Idempotent -- a second call while the child is active is a no-op.
+      private def open_quote_renderer : Nil
+        return if @quote_renderer
+        open_block(BlockElement::Blockquote)
+        style = @stylesheet[BlockElement::Blockquote]
+        ansi = style.to_ansi
+        prefix = style.line_prefix || ""
+        wrapped_io = BlockquoteIO.new(@io, ansi + prefix)
+        @quote_renderer = Renderer.new(wrapped_io, @stylesheet)
+      end
+
+      # Closes and flushes the child renderer, syncing blank-line state back
+      # to the parent so margin logic stays correct for the next block.
+      private def close_quote_renderer : Nil
+        if r = @quote_renderer
+          r.close
+          @quote_renderer = nil
+          @current_line_empty = r.@current_line_empty
+        end
+      end
+
       private def dispatch_block(line : String) : Nil
         if m = line.match(HEADING)
           emit_styled(heading_element(m[1].size), m[2])
@@ -237,10 +285,6 @@ module Termify
             list_visual_indent
           )
           @block_mode = BlockMode::CodeFence
-        elsif line.starts_with?("> ")
-          emit_styled(BlockElement::Blockquote, line[2..])
-        elsif line.starts_with?(">")
-          emit_styled(BlockElement::Blockquote, line[1..])
         elsif horizontal_rule?(line)
           emit_styled(BlockElement::HorizontalRule, line)
         elsif list_line?(line)
@@ -590,7 +634,12 @@ module Termify
           process_list_item(line)
           true
         elsif list_continuation?(line, content_indent)
-          dispatch_continuation(strip_list_indent(line, content_indent))
+          # Blockquote lines must only have leading whitespace stripped so the
+          # ">" prefix survives into dispatch_continuation. Stripping exactly
+          # content_indent chars would eat the ">" when the blockquote indented
+          # shallower than content_indent (common in practice).
+          stripped = line.lstrip.starts_with?(">") ? line.lstrip : strip_list_indent(line, content_indent)
+          dispatch_continuation(stripped)
           true
         else
           flush_table if @block_mode.table?
@@ -601,9 +650,12 @@ module Termify
       end
 
       # Returns true if *line* has enough leading whitespace to be a continuation
-      # block of the current list item.
+      # block of the current list item. Blockquote lines (> prefix) with any
+      # positive indentation are also accepted as continuations.
       private def list_continuation?(line : String, content_indent : Int32) : Bool
-        (line.size - line.lstrip.size) >= content_indent
+        indent = line.size - line.lstrip.size
+        return true if indent > 0 && line.lstrip.starts_with?(">")
+        indent >= content_indent
       end
 
       # Strips exactly *n* leading characters from *line*.
@@ -614,6 +666,7 @@ module Termify
       # Dispatches a continuation line (already de-indented) through the normal
       # table and block pipeline, bypassing the list check.
       private def dispatch_continuation(line : String) : Nil
+        return if process_quote_line(line)
         return if process_table_line(line)
         dispatch_block(line)
       end

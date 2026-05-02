@@ -222,6 +222,65 @@ Spectator.describe Termify::Markdown::Renderer do
         expect(output).to contain("1. ")
         expect(output).to contain("2. ")
       end
+
+      it "renders a blockquote continuation inside a list item" do
+        output = render_block("1. Three\n  > quoted\n2. Four\n")
+        expect(output).to contain("Three")
+        expect(output).to contain("quoted")
+        expect(output).to contain("Four")
+      end
+
+      it "applies blockquote prefix decoration to content inside a list item" do
+        sheet = Stylesheet.new({:blockquote => {line_prefix: "| "}},
+          merge: Stylesheet.default)
+        io = IO::Memory.new
+        r = Renderer.new(io, sheet)
+        r.feed("1. Three\n  > quoted\n2. Four\n")
+        r.close
+        output = io.to_s
+        expect(output).to contain("| quoted")
+        expect(output).to_not contain("| Three")
+        expect(output).to_not contain("| Four")
+      end
+
+      it "renders a blockquote with its own nested list inside a list item" do
+        md = "1. Three\n  > Block quote\n  >\n  > - With its own list\n  > - Of stuff\n2. Four\n"
+        output = render_block(md)
+        expect(output).to contain("Three")
+        expect(output).to contain("Block quote")
+        expect(output).to contain("With its own list")
+        expect(output).to contain("Of stuff")
+        expect(output).to contain("Four")
+      end
+
+      it "keeps nested list items inside the blockquote, not at the outer list level" do
+        # In the broken state, "- With its own list" became an outer list item
+        # causing the outer ordered list to count it, so "Four" would be "4." or later.
+        md = "1. Three\n  > Block quote\n  >\n  > - With its own list\n  > - Of stuff\n2. Four\n"
+        output = render_block(md)
+        expect(output).to contain("2. ")
+        # Outer list must not advance past 2 due to spurious items
+        expect(output).to_not contain("3. ")
+      end
+
+      it "applies blockquote prefix to all lines including blank separators and nested list content" do
+        sheet = Stylesheet.new({:blockquote => {line_prefix: "| "}},
+          merge: Stylesheet.default)
+        io = IO::Memory.new
+        r = Renderer.new(io, sheet)
+        r.feed("1. Three\n  > Block quote\n  >\n  > - item\n2. Four\n")
+        r.close
+        output = io.to_s
+        expect(output).to contain("| Block quote")
+        expect(output).to contain("| ")
+        # The list item inside the blockquote must also carry the prefix
+        expect(output.lines.select { |l| l.includes?("item") }.first).to contain("| ")
+      end
+
+      it "resumes the outer list after a blockquote continuation" do
+        output = render_block("1. Three\n  > quoted\n2. Four\n")
+        expect(output).to contain("2. ")
+      end
     end
   end
 end

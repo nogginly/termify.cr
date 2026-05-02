@@ -134,6 +134,48 @@ Spectator.describe Termify::Markdown::Renderer do
       expect(output).to contain("first")
       expect(output).to contain("second")
     end
+
+    it "renders a nested blockquote" do
+      output = render_block("> outer\n> > inner\n")
+      expect(output).to contain("outer")
+      expect(output).to contain("inner")
+    end
+
+    it "applies the prefix twice for a doubly-nested blockquote" do
+      output = render_block("> > deep\n")
+      expect(output.scan("| ").size).to be >= 2
+    end
+
+    it "blank line between nested levels gets the shallower prefix, not the deeper one" do
+      # "> >" is a blank at the >> level; it should carry 2x prefix not 3x
+      output = render_block("> > > deep\n> >\n> > after\n")
+      lines = output.lines
+      blank_line = lines.find { |l| l.strip.empty? || l == "| | \n" || l == "| \n" }
+      # blank line must not have 3 or more "| " repetitions
+      expect(blank_line.to_s.scan("| ").size).to be < 3
+    end
+
+    it "renders a paragraph inside a blockquote" do
+      output = render_block("> some text\n")
+      expect(output).to contain("some text")
+    end
+
+    it "renders a code fence inside a blockquote" do
+      output = render_block("> ```\n> code line\n> ```\n")
+      expect(output).to contain("code line")
+    end
+
+    it "renders a list inside a blockquote" do
+      output = render_block("> - item one\n> - item two\n")
+      expect(output).to contain("item one")
+      expect(output).to contain("item two")
+    end
+
+    it "resumes normal rendering after a blockquote ends" do
+      output = render_block("> quoted\n\nnormal\n")
+      expect(output).to contain("quoted")
+      expect(output).to contain("normal")
+    end
   end
 
   # -------------------------------------------------------------------------

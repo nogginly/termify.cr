@@ -1,0 +1,74 @@
+require "../../../spec_helper"
+
+Spectator.describe Termify::Markdown::BlockquoteIO do
+  include Termify::Markdown
+
+  def wrap(prefix : String) : {BlockquoteIO, IO::Memory}
+    io = IO::Memory.new
+    bio = BlockquoteIO.new(io, prefix)
+    {bio, io}
+  end
+
+  # -- prefix injection -------------------------------------------------------
+
+  describe "prefix injection" do
+    it "prepends the prefix at the start of the first line" do
+      bio, io = wrap("| ")
+      bio << "hello\n"
+      expect(io.to_s).to eq("| hello\n")
+    end
+
+    it "prepends the prefix on every non-blank line" do
+      bio, io = wrap("| ")
+      bio << "line one\nline two\n"
+      expect(io.to_s).to eq("| line one\n| line two\n")
+    end
+
+    it "prepends the prefix on blank lines too" do
+      bio, io = wrap("| ")
+      bio << "line one\n\nline two\n"
+      expect(io.to_s).to eq("| line one\n| \n| line two\n")
+    end
+
+    it "works with an empty prefix string" do
+      bio, io = wrap("")
+      bio << "text\n"
+      expect(io.to_s).to eq("text\n")
+    end
+
+    it "works with ANSI sequences in the prefix" do
+      bio, io = wrap("\e[2m| \e[0m")
+      bio << "text\n"
+      expect(io.to_s).to start_with("\e[2m| \e[0m")
+      expect(io.to_s).to contain("text")
+    end
+  end
+
+  # -- write called with partial lines ----------------------------------------
+
+  describe "partial writes" do
+    it "handles content written in multiple write calls across a line boundary" do
+      bio, io = wrap("| ")
+      bio << "hel"
+      bio << "lo\n"
+      expect(io.to_s).to eq("| hello\n")
+    end
+
+    it "handles the prefix written on a subsequent write after a newline" do
+      bio, io = wrap("| ")
+      bio << "first\n"
+      bio << "second\n"
+      expect(io.to_s).to eq("| first\n| second\n")
+    end
+  end
+
+  # -- read raises -------------------------------------------------------------
+
+  describe "#read" do
+    it "raises IO::Error" do
+      bio, _ = wrap("| ")
+      buf = Bytes.new(4)
+      expect_raises(IO::Error) { bio.read(buf) }
+    end
+  end
+end
