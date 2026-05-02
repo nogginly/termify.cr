@@ -94,13 +94,17 @@ module Termify
         )
       end
 
+      # Matches a full hex color string e.g. "#ff8000" or "#FF8000".
+      # Anchored so superstrings do not match; case-insensitive for A-F.
+      private HEX_COLOR_RE = /\A#([0-9a-fA-F]{6})\z/
+
       # Convert color value from symbol/string
       private def color_from(value : Symbol | String | ANSI::Color | Nil)
         case value
         when Symbol, String
           case color = value.to_s
-          when /#[0-9a-f]{6}/
-            rgb = color[1..-1]
+          when HEX_COLOR_RE
+            rgb = $~[1]
             Colorize::ColorRGB.new(
               red: rgb[0..1].to_u8(16),
               green: rgb[2..3].to_u8(16),

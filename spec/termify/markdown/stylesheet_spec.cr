@@ -258,6 +258,29 @@ Spectator.describe Termify::Markdown::Stylesheet do
       expect(rgb.blue).to eq(0x00_u8)
     end
 
+    it "maps an uppercase hex string to a ColorRGB value" do
+      sheet = Termify::Markdown::Stylesheet.new({:paragraph => {fg: "#FF8000"}})
+      expect(sheet[Termify::Markdown::BlockElement::Paragraph].fg).to be_a(Colorize::ColorRGB)
+    end
+
+    it "raises for a hex string with extra trailing characters" do
+      expect_raises(Exception) do
+        Termify::Markdown::Stylesheet.new({:paragraph => {fg: "#ff80001"}})
+      end
+    end
+
+    it "raises for a hex string embedded in other text" do
+      expect_raises(Exception) do
+        Termify::Markdown::Stylesheet.new({:paragraph => {fg: "color#ff8000"}})
+      end
+    end
+
+    it "raises for a hex string with too few digits" do
+      expect_raises(Exception) do
+        Termify::Markdown::Stylesheet.new({:paragraph => {fg: "#ff80"}})
+      end
+    end
+
     it "maps a Color256 name string to an ANSI::Color256 value" do
       sheet = Termify::Markdown::Stylesheet.new({:paragraph => {fg: "DeepSkyBlue1"}})
       expect(sheet[Termify::Markdown::BlockElement::Paragraph].fg).to be_a(Termify::ANSI::Color256)
