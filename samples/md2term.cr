@@ -4,13 +4,16 @@ USAGE = "Usage: md2term <MARKDOWNFILE>\nRead a Markdown file and render to termi
 md_file = ARGV[0]? || abort(USAGE)
 
 ss = Termify.markdown_stylesheet({
-  "h1"          => {bold: true, line_prefix: "# ".colorize(:dark_gray).to_s, newline_after: true},
-  "h2"          => {bold: true, line_prefix: "## ".colorize(:dark_gray).to_s, newline_after: true, newline_before: true},
-  "h3"          => {bold: true, line_prefix: "### ".colorize(:dark_gray).to_s, newline_after: true, newline_before: true},
-  "h4"          => {bold: true, line_prefix: "#### ".colorize(:dark_gray).to_s},
-  "h5"          => {bold: true},
-  "h6"          => {bold: true},
-  "code_block"  => {fg: :light_cyan, line_number_format: "%3d: "},
+  "h1"         => {bold: true, line_prefix: "# ".colorize(:dark_gray).to_s, newline_after: true},
+  "h2"         => {bold: true, line_prefix: "## ".colorize(:dark_gray).to_s, newline_after: true, newline_before: true},
+  "h3"         => {bold: true, line_prefix: "### ".colorize(:dark_gray).to_s, newline_after: true, newline_before: true},
+  "h4"         => {bold: true, line_prefix: "#### ".colorize(:dark_gray).to_s},
+  "h5"         => {bold: true},
+  "h6"         => {bold: true},
+  "code_block" => {
+    fg: :light_cyan, line_number_format: "%3d: ",
+    gutter_style: {dim: true},
+  },
   "code_inline" => {fg: :red},
   "html_tag"    => {dim: true},
   "block_html"  => {dim: true},

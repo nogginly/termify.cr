@@ -84,6 +84,12 @@ module Termify
 
       # Convert NamedTuple options into a CodeBlockStyle.
       private def code_block_style_from(opts : NamedTuple) : CodeBlockStyle
+        gs = opts["gutter_style"]?
+        gutter_style = case gs
+                       when InlineStyle then gs
+                       when NamedTuple  then inline_style_from(gs)
+                       else                  nil
+                       end
         CodeBlockStyle.new(
           bold: opts["bold"]? || false,
           italic: opts["italic"]? || false,
@@ -97,6 +103,7 @@ module Termify
           newline_before: opts["newline_before"]? || false,
           newline_after: opts["newline_after"]? || false,
           line_number_format: opts["line_number_format"]?,
+          gutter_style: gutter_style,
         )
       end
 

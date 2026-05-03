@@ -28,13 +28,21 @@ module Termify
 
       # Emits one code body line with block style applied. No inline parsing.
       # Prepends the formatted line number gutter when line_number_format is set.
+      # gutter_style, when set, is applied to the gutter only; the block style
+      # resumes for the code content.
       def feed(line : String) : Nil
         @line_number += 1
         ansi = @style.to_ansi
         prefix = @style.line_prefix || ""
         reset = ansi.empty? ? "" : ANSI::RESET
         gutter = if fmt = @style.line_number_format
-                   sprintf(fmt, @line_number)
+                   text = sprintf(fmt, @line_number)
+                   if gs = @style.gutter_style
+                     gs_ansi = gs.to_ansi
+                     gs_ansi.empty? ? text : "#{gs_ansi}#{text}#{ANSI::RESET}#{ansi}"
+                   else
+                     text
+                   end
                  else
                    ""
                  end

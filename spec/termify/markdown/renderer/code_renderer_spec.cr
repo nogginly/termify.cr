@@ -143,5 +143,38 @@ Spectator.describe Termify::Markdown::CodeRenderer do
       cr.feed("code")
       expect(io.to_s).to start_with("  1 code")
     end
+
+    it "applies gutter_style ANSI around the gutter text" do
+      gs = InlineStyle.new(dim: true)
+      style = CodeBlockStyle.new(line_number_format: "%d ", gutter_style: gs)
+      cr, io = make_renderer(style: style)
+      cr.feed("code")
+      output = io.to_s
+      expect(output).to contain(ANSI::DIM)
+      expect(output).to contain("1 ")
+      expect(output).to contain("code")
+    end
+
+    it "resumes block style after gutter when gutter_style is set" do
+      block_ansi = ANSI::BOLD
+      gs = InlineStyle.new(dim: true)
+      style = CodeBlockStyle.new(bold: true, line_number_format: "%d ", gutter_style: gs)
+      cr, io = make_renderer(style: style)
+      cr.feed("code")
+      output = io.to_s
+      # block style must appear before the code content
+      bold_pos = output.index(ANSI::BOLD)
+      code_pos = output.index("code")
+      expect(bold_pos).to_not be_nil
+      expect(code_pos).to_not be_nil
+      expect(bold_pos.not_nil!).to be < code_pos.not_nil!
+    end
+
+    it "emits no extra sequences when gutter_style is nil" do
+      style = CodeBlockStyle.new(line_number_format: "%d ")
+      cr, io = make_renderer(style: style)
+      cr.feed("code")
+      expect(io.to_s).to eq("1 code\n")
+    end
   end
 end

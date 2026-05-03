@@ -391,6 +391,21 @@ Spectator.describe Termify::Markdown::Stylesheet do
       expect(sheet.code_block_style.line_number_format).to eq("%3d | ")
     end
 
+    it "accepts gutter_style as a NamedTuple" do
+      sheet = Termify::Markdown::Stylesheet.new(
+        {:code_block => {line_number_format: "%d ", gutter_style: {dim: true}}})
+      gs = sheet.code_block_style.gutter_style
+      expect(gs).to_not be_nil
+      expect(gs.not_nil!.dim?).to be_true
+    end
+
+    it "accepts gutter_style as an InlineStyle" do
+      gs = Termify::Markdown::InlineStyle.new(italic: true)
+      sheet = Termify::Markdown::Stylesheet.new(
+        {:code_block => {line_number_format: "%d ", gutter_style: gs}})
+      expect(sheet.code_block_style.gutter_style).to eq(gs)
+    end
+
     it "returns CodeBlockStyle::NONE when the entry is a plain BlockStyle" do
       sheet = Termify::Markdown::Stylesheet.new(
         block_styles: {Termify::Markdown::BlockElement::CodeBlock => Termify::Markdown::BlockStyle.new(bold: true)})

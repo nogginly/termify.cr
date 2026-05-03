@@ -90,6 +90,12 @@ Spectator.describe Termify::Markdown::CodeBlockStyle do
       expect(a).to_not eq(b)
     end
 
+    it "is not equal when gutter_style differs" do
+      a = CodeBlockStyle.new(gutter_style: InlineStyle.new(dim: true))
+      b = CodeBlockStyle.new(gutter_style: nil)
+      expect(a).to_not eq(b)
+    end
+
     it "is not equal to a plain BlockStyle even with identical base fields" do
       a = CodeBlockStyle.new(bold: true)
       b = BlockStyle.new(bold: true)
@@ -100,6 +106,41 @@ Spectator.describe Termify::Markdown::CodeBlockStyle do
       a = CodeBlockStyle.new(bold: true)
       b = BlockStyle.new(bold: true)
       expect(b).to_not eq(a)
+    end
+  end
+
+  # -- gutter_style -----------------------------------------------------------
+
+  describe "#gutter_style" do
+    it "defaults to nil" do
+      expect(CodeBlockStyle.new.gutter_style).to be_nil
+    end
+
+    it "stores a supplied InlineStyle" do
+      gs = InlineStyle.new(dim: true)
+      style = CodeBlockStyle.new(gutter_style: gs)
+      expect(style.gutter_style).to eq(gs)
+    end
+  end
+
+  describe "#merge with gutter_style" do
+    it "inherits gutter_style from self when other has none" do
+      gs = InlineStyle.new(dim: true)
+      base = CodeBlockStyle.new(gutter_style: gs)
+      result = base.merge(CodeBlockStyle.new)
+      expect(result.gutter_style).to eq(gs)
+    end
+
+    it "overrides gutter_style from other when other has one" do
+      gs_a = InlineStyle.new(dim: true)
+      gs_b = InlineStyle.new(italic: true)
+      result = CodeBlockStyle.new(gutter_style: gs_a).merge(CodeBlockStyle.new(gutter_style: gs_b))
+      expect(result.gutter_style).to eq(gs_b)
+    end
+
+    it "leaves gutter_style nil when neither side has one" do
+      result = CodeBlockStyle.new.merge(CodeBlockStyle.new)
+      expect(result.gutter_style).to be_nil
     end
   end
 end
