@@ -69,7 +69,6 @@ module Termify
       # Prepends the formatted line number gutter when line_number_format is set.
       # gutter_style, when set, is applied to the gutter only; the block style
       # resumes for the code content.
-      # ameba:disable Metrics/CyclomaticComplexity
       def feed(line : String) : Nil
         @line_number += 1
         ansi = @style.to_ansi
