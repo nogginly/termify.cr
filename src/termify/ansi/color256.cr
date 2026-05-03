@@ -75,7 +75,7 @@ module Termify
       Chartreuse3
       DarkSeaGreen4_2
       CadetBlue
-      CadetBlue2
+      CadetBlue_2
       SkyBlue3
       SteelBlue1
       Chartreuse3_2
@@ -90,12 +90,12 @@ module Termify
       SeaGreen1_2
       Aquamarine1
       DarkSlateGray2
-      DarkRed2
+      DarkRed_2
       DeepPink4_2
       DarkMagenta
-      DarkMagenta2
+      DarkMagenta_2
       DarkViolet
-      Purple2
+      Purple_2
       Orange4_2
       LightPink4
       Plum4
@@ -122,7 +122,7 @@ module Termify
       SkyBlue1
       Chartreuse1
       LightGreen
-      LightGreen2
+      LightGreen_2
       PaleGreen1
       Aquamarine1_2
       DarkSlateGray1
@@ -130,8 +130,8 @@ module Termify
       DeepPink4_3
       MediumVioletRed
       Magenta3
-      DarkViolet2
-      Purple5
+      DarkViolet_2
+      Purple_3
       DarkOrange3
       IndianRed
       HotPink3
@@ -169,7 +169,7 @@ module Termify
       Magenta3_3
       Magenta2
       DarkOrange3_2
-      IndianRed2
+      IndianRed_2
       HotPink3_2
       HotPink2
       Orchid
@@ -208,7 +208,7 @@ module Termify
       IndianRed1
       IndianRed1_2
       HotPink
-      HotPink4
+      HotPink_2
       MediumOrchid1_2
       DarkOrange
       Salmon1
