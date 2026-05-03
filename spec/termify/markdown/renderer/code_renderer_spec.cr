@@ -189,6 +189,7 @@ Spectator.describe Termify::Markdown::CodeRenderer do
       style = CodeBlockStyle.new(highlight_theme: "default-dark")
       cr, io = make_renderer(language: "not_a_real_language", style: style)
       cr.feed("some code")
+      cr.close
       expect(io.to_s.gsub(/\e\[[0-9;]*m/, "")).to contain("some code")
     end
 
@@ -196,6 +197,7 @@ Spectator.describe Termify::Markdown::CodeRenderer do
       style = CodeBlockStyle.new(highlight_theme: "not_a_real_theme")
       cr, io = make_renderer(language: "javascript", style: style)
       cr.feed("some code")
+      cr.close
       expect(io.to_s.gsub(/\e\[[0-9;]*m/, "")).to contain("some code")
     end
 
@@ -203,6 +205,7 @@ Spectator.describe Termify::Markdown::CodeRenderer do
       style = CodeBlockStyle.new(highlight_theme: "default-dark")
       cr, io = make_renderer(language: "", style: style)
       cr.feed("var x = 1;")
+      cr.close
       expect(io.to_s.gsub(/\e\[[0-9;]*m/, "")).to contain("var x = 1;")
     end
 
@@ -210,7 +213,7 @@ Spectator.describe Termify::Markdown::CodeRenderer do
       style = CodeBlockStyle.new(highlight_theme: "default-dark")
       cr, io = make_renderer(language: "javascript", style: style)
       cr.feed("var x = 1;")
-      # Highlighted output must contain at least one ANSI escape
+      cr.close
       expect(io.to_s).to contain("\e[")
     end
 
@@ -219,12 +222,10 @@ Spectator.describe Termify::Markdown::CodeRenderer do
       cr, io = make_renderer(language: "javascript", style: style)
       cr.feed("/* start of comment")
       cr.feed("   end of comment */")
-      # Strip ANSI sequences before checking content -- tartrazine wraps
-      # each character individually so plain substrings won't match raw output.
+      cr.close
       plain = io.to_s.gsub(/\e\[[0-9;]*m/, "")
       expect(plain).to contain("start of comment")
       expect(plain).to contain("end of comment")
-      # Both lines must carry ANSI sequences (i.e. were highlighted, not plain)
       io.to_s.lines.each do |line|
         expect(line).to contain("\e[") unless line.strip.empty?
       end
