@@ -143,4 +143,49 @@ Spectator.describe Termify::Markdown::CodeBlockStyle do
       expect(result.gutter_style).to be_nil
     end
   end
+
+  # -- highlight_theme --------------------------------------------------------
+
+  describe "#highlight_theme" do
+    it "defaults to nil" do
+      expect(CodeBlockStyle.new.highlight_theme).to be_nil
+    end
+
+    it "stores the supplied theme name" do
+      style = CodeBlockStyle.new(highlight_theme: "catppuccin-macchiato")
+      expect(style.highlight_theme).to eq("catppuccin-macchiato")
+    end
+  end
+
+  describe "#merge with highlight_theme" do
+    it "inherits highlight_theme from self when other has none" do
+      base = CodeBlockStyle.new(highlight_theme: "monokai")
+      result = base.merge(CodeBlockStyle.new)
+      expect(result.highlight_theme).to eq("monokai")
+    end
+
+    it "overrides highlight_theme from other when other has one" do
+      base = CodeBlockStyle.new(highlight_theme: "monokai")
+      other = CodeBlockStyle.new(highlight_theme: "catppuccin-macchiato")
+      expect(base.merge(other).highlight_theme).to eq("catppuccin-macchiato")
+    end
+
+    it "leaves highlight_theme nil when neither side has one" do
+      expect(CodeBlockStyle.new.merge(CodeBlockStyle.new).highlight_theme).to be_nil
+    end
+  end
+
+  describe "#== with highlight_theme" do
+    it "is not equal when highlight_theme differs" do
+      a = CodeBlockStyle.new(highlight_theme: "monokai")
+      b = CodeBlockStyle.new(highlight_theme: "catppuccin-macchiato")
+      expect(a).to_not eq(b)
+    end
+
+    it "is equal when highlight_theme matches" do
+      a = CodeBlockStyle.new(highlight_theme: "monokai")
+      b = CodeBlockStyle.new(highlight_theme: "monokai")
+      expect(a).to eq(b)
+    end
+  end
 end

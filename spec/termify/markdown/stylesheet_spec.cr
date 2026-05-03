@@ -391,6 +391,12 @@ Spectator.describe Termify::Markdown::Stylesheet do
       expect(sheet.code_block_style.line_number_format).to eq("%3d | ")
     end
 
+    it "returns the configured CodeBlockStyle including highlight_theme" do
+      sheet = Termify::Markdown::Stylesheet.new(
+        {:code_block => {highlight_theme: "catppuccin-macchiato"}})
+      expect(sheet.code_block_style.highlight_theme).to eq("catppuccin-macchiato")
+    end
+
     it "accepts gutter_style as a NamedTuple" do
       sheet = Termify::Markdown::Stylesheet.new(
         {:code_block => {line_number_format: "%d ", gutter_style: {dim: true}}})

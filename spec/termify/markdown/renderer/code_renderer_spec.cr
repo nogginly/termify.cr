@@ -167,7 +167,11 @@ Spectator.describe Termify::Markdown::CodeRenderer do
       code_pos = output.index("code")
       expect(bold_pos).to_not be_nil
       expect(code_pos).to_not be_nil
-      expect(bold_pos.not_nil!).to be < code_pos.not_nil!
+      if b = bold_pos
+        if c = code_pos
+          expect(b).to be < c
+        end
+      end
     end
 
     it "emits no extra sequences when gutter_style is nil" do
@@ -175,6 +179,64 @@ Spectator.describe Termify::Markdown::CodeRenderer do
       cr, io = make_renderer(style: style)
       cr.feed("code")
       expect(io.to_s).to eq("1 code\n")
+    end
+  end
+
+  # -- highlighting -----------------------------------------------------------
+
+  describe "highlighting" do
+    it "falls back to plain output for an unknown language" do
+      style = CodeBlockStyle.new(highlight_theme: "default-dark")
+      cr, io = make_renderer(language: "not_a_real_language", style: style)
+      cr.feed("some code")
+      expect(io.to_s.gsub(/\e\[[0-9;]*m/, "")).to contain("some code")
+    end
+
+    it "falls back to plain output for an unknown theme" do
+      style = CodeBlockStyle.new(highlight_theme: "not_a_real_theme")
+      cr, io = make_renderer(language: "javascript", style: style)
+      cr.feed("some code")
+      expect(io.to_s.gsub(/\e\[[0-9;]*m/, "")).to contain("some code")
+    end
+
+    it "falls back to plain output when language is empty even if theme is set" do
+      style = CodeBlockStyle.new(highlight_theme: "default-dark")
+      cr, io = make_renderer(language: "", style: style)
+      cr.feed("var x = 1;")
+      expect(io.to_s.gsub(/\e\[[0-9;]*m/, "")).to contain("var x = 1;")
+    end
+
+    it "emits ANSI sequences when highlighting a known language and theme" do
+      style = CodeBlockStyle.new(highlight_theme: "default-dark")
+      cr, io = make_renderer(language: "javascript", style: style)
+      cr.feed("var x = 1;")
+      # Highlighted output must contain at least one ANSI escape
+      expect(io.to_s).to contain("\e[")
+    end
+
+    it "preserves multi-line comment state across feed calls" do
+      style = CodeBlockStyle.new(highlight_theme: "default-dark")
+      cr, io = make_renderer(language: "javascript", style: style)
+      cr.feed("/* start of comment")
+      cr.feed("   end of comment */")
+      # Strip ANSI sequences before checking content -- tartrazine wraps
+      # each character individually so plain substrings won't match raw output.
+      plain = io.to_s.gsub(/\e\[[0-9;]*m/, "")
+      expect(plain).to contain("start of comment")
+      expect(plain).to contain("end of comment")
+      # Both lines must carry ANSI sequences (i.e. were highlighted, not plain)
+      io.to_s.lines.each do |line|
+        expect(line).to contain("\e[") unless line.strip.empty?
+      end
+    end
+
+    it "resets tokenizer state on close" do
+      style = CodeBlockStyle.new(highlight_theme: "default-dark")
+      cr, io = make_renderer(language: "javascript", style: style)
+      cr.feed("/* open comment")
+      cr.close
+      plain = io.to_s.gsub(/\e\[[0-9;]*m/, "")
+      expect(plain).to contain("open comment")
     end
   end
 end

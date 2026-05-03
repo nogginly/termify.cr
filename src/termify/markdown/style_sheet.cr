@@ -104,6 +104,7 @@ module Termify
           newline_after: opts["newline_after"]? || false,
           line_number_format: opts["line_number_format"]?,
           gutter_style: gutter_style,
+          highlight_theme: opts["highlight_theme"]?,
         )
       end
 

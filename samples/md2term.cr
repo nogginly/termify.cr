@@ -12,6 +12,7 @@ ss = Termify.markdown_stylesheet({
   "h6"         => {bold: true},
   "code_block" => {
     fg: :light_cyan, line_number_format: "%3d: ",
+    highlight_theme: "catppuccin-macchiato",
     gutter_style: {dim: true},
   },
   "code_inline" => {fg: :red},
