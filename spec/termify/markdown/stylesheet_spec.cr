@@ -371,4 +371,30 @@ Spectator.describe Termify::Markdown::Stylesheet do
       expect(base[Termify::Markdown::BlockElement::Paragraph]).to eq(Termify::Markdown::BlockStyle::NONE)
     end
   end
+
+  # -- code_block_style accessor ----------------------------------------------
+
+  describe "#code_block_style" do
+    it "returns a CodeBlockStyle" do
+      expect(Termify::Markdown::Stylesheet.default.code_block_style)
+        .to be_a(Termify::Markdown::CodeBlockStyle)
+    end
+
+    it "returns CodeBlockStyle::NONE when no code_block entry is present" do
+      sheet = Termify::Markdown::Stylesheet.new({} of Symbol => NamedTuple())
+      expect(sheet.code_block_style).to eq(Termify::Markdown::CodeBlockStyle::NONE)
+    end
+
+    it "returns the configured CodeBlockStyle including line_number_format" do
+      sheet = Termify::Markdown::Stylesheet.new(
+        {:code_block => {line_number_format: "%3d | "}})
+      expect(sheet.code_block_style.line_number_format).to eq("%3d | ")
+    end
+
+    it "returns CodeBlockStyle::NONE when the entry is a plain BlockStyle" do
+      sheet = Termify::Markdown::Stylesheet.new(
+        block_styles: {Termify::Markdown::BlockElement::CodeBlock => Termify::Markdown::BlockStyle.new(bold: true)})
+      expect(sheet.code_block_style).to eq(Termify::Markdown::CodeBlockStyle::NONE)
+    end
+  end
 end

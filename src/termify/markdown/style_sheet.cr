@@ -55,7 +55,8 @@ module Termify
         styles.each do |sym, opts|
           key = sym.to_s
           if elem = BlockElement.parse?(key)
-            @block_styles[elem] = block_style_from(opts)
+            style = elem == BlockElement::CodeBlock ? code_block_style_from(opts) : block_style_from(opts)
+            @block_styles[elem] = style
           elsif elem = InlineElement.parse?(key)
             @inline_styles[elem] = inline_style_from(opts)
           else
@@ -78,6 +79,24 @@ module Termify
           line_suffix: opts["line_suffix"]?,
           newline_before: opts["newline_before"]? || false,
           newline_after: opts["newline_after"]? || false,
+        )
+      end
+
+      # Convert NamedTuple options into a CodeBlockStyle.
+      private def code_block_style_from(opts : NamedTuple) : CodeBlockStyle
+        CodeBlockStyle.new(
+          bold: opts["bold"]? || false,
+          italic: opts["italic"]? || false,
+          dim: opts["dim"]? || false,
+          underline: opts["underline"]? || false,
+          strikethrough: opts["strikethrough"]? || false,
+          fg: color_from(opts["fg"]?),
+          bg: color_from(opts["bg"]?),
+          line_prefix: opts["line_prefix"]?,
+          line_suffix: opts["line_suffix"]?,
+          newline_before: opts["newline_before"]? || false,
+          newline_after: opts["newline_after"]? || false,
+          line_number_format: opts["line_number_format"]?,
         )
       end
 
@@ -123,6 +142,13 @@ module Termify
         @block_styles.fetch(element, BlockStyle::NONE)
       end
 
+      # Returns the CodeBlockStyle for code blocks. Falls back to CodeBlockStyle::NONE
+      # when the entry is absent or is a plain BlockStyle.
+      def code_block_style : CodeBlockStyle
+        s = @block_styles[BlockElement::CodeBlock]?
+        s.is_a?(CodeBlockStyle) ? s : CodeBlockStyle::NONE
+      end
+
       # Look up the style for an inline element; returns InlineStyle::NONE if not mapped.
       def [](element : InlineElement) : InlineStyle
         @inline_styles.fetch(element, InlineStyle::NONE)
@@ -150,7 +176,7 @@ module Termify
             BlockElement::H6             => BlockStyle.new(dim: true, underline: true),
             BlockElement::Paragraph      => BlockStyle::NONE,
             BlockElement::Blockquote     => BlockStyle.new(line_prefix: "| "),
-            BlockElement::CodeBlock      => BlockStyle.new(fg: Colorize::ColorANSI::White, bg: Colorize::ColorANSI::DarkGray),
+            BlockElement::CodeBlock      => CodeBlockStyle.new(fg: Colorize::ColorANSI::White, bg: Colorize::ColorANSI::DarkGray),
             BlockElement::HorizontalRule => BlockStyle.new(dim: true),
             BlockElement::ListItem       => BlockStyle.new(line_prefix: "* "),
             BlockElement::BlockHtml      => BlockStyle.new(fg: Colorize::ColorANSI::Red),

@@ -285,7 +285,7 @@ module Termify
           language = fenced[3..].strip
           @code_renderer = CodeRenderer.new(
             language,
-            @stylesheet[BlockElement::CodeBlock],
+            @stylesheet.code_block_style,
             @io,
             list_visual_indent
           )
