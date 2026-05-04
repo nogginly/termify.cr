@@ -7,7 +7,7 @@ ss = Termify.markdown_stylesheet({
   "h1"         => {bold: true, line_prefix: "# ".colorize(:dark_gray).to_s, newline_after: true},
   "h2"         => {bold: true, line_prefix: "## ".colorize(:dark_gray).to_s, newline_after: true, newline_before: true},
   "h3"         => {bold: true, line_prefix: "### ".colorize(:dark_gray).to_s, newline_after: true, newline_before: true},
-  "h4"         => {bold: true, line_prefix: "#### ".colorize(:dark_gray).to_s},
+  "h4"         => {bold: true, fg: "white", line_prefix: "#### ".colorize(:dark_gray).to_s},
   "h5"         => {bold: true},
   "h6"         => {bold: true},
   "code_block" => {
@@ -19,7 +19,7 @@ ss = Termify.markdown_stylesheet({
   "html_tag"    => {dim: true},
   "block_html"  => {dim: true},
   "list_item"   => {newline_after: true, newline_before: true},
-  "block_quote" => {line_prefix: "│ ", newline_after: true, newline_before: true},
+  "block_quote" => {line_prefix: "│ ", newline_after: true, newline_before: true, bg: "Grey7"},
 })
 
 File.open(md_file, "r") do |file|

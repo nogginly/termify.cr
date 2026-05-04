@@ -418,4 +418,43 @@ Spectator.describe Termify::Markdown::Renderer do
       expect(output.ends_with?("\n\n")).to be_true
     end
   end
+
+  # -- erase to end of line ---------------------------------------------------
+
+  describe "background color erase to EOL" do
+    it "emits ERASE_LINE before RESET when block style has a bg color" do
+      sheet = Stylesheet.new
+      sheet[BlockElement::Paragraph] = BlockStyle.new(bg: Colorize::ColorANSI::DarkGray)
+      output = String.build do |io|
+        r = Renderer.new(io, sheet)
+        r << "text\n"
+        r.close
+      end
+      expect(output).to contain(ANSI::ERASE_LINE)
+    end
+
+    it "does not emit ERASE_LINE when block style has no bg color" do
+      output = render_block("text\n")
+      expect(output).to_not contain(ANSI::ERASE_LINE)
+    end
+
+    it "emits ERASE_LINE before RESET, not after" do
+      sheet = Stylesheet.new
+      sheet[BlockElement::Paragraph] = BlockStyle.new(bg: Colorize::ColorANSI::DarkGray)
+      output = String.build do |io|
+        r = Renderer.new(io, sheet)
+        r << "text\n"
+        r.close
+      end
+      erase_pos = output.index(ANSI::ERASE_LINE)
+      reset_pos = output.index(ANSI::RESET)
+      expect(erase_pos).to_not be_nil
+      expect(reset_pos).to_not be_nil
+      if e = erase_pos
+        if r = reset_pos
+          expect(e).to be < r
+        end
+      end
+    end
+  end
 end

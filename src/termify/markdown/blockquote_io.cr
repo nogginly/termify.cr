@@ -1,14 +1,15 @@
 module Termify
   module Markdown
     # Write-only IO wrapper that prepends a prefix string at the start of each
-    # non-blank line. Used by Renderer to inject blockquote styling (e.g. "| ")
-    # transparently, so nested renderers (lists, code, tables) need no
-    # blockquote awareness.
+    # line and appends a suffix string just before each newline.
+    # Used by Renderer to inject blockquote styling (e.g. prefix "│ " and
+    # suffix "\e[K\e[0m" when a bg is set) transparently, so nested renderers
+    # (lists, code, tables) need no blockquote awareness.
     #
     # @at_line_start tracks whether the next character begins a new line.
-    # Every line, including blank lines, receives the prefix.
+    # Every line, including blank lines, receives both prefix and suffix.
     class BlockquoteIO < IO
-      def initialize(@io : IO, @prefix : String)
+      def initialize(@io : IO, @prefix : String, @suffix : String = "")
         @at_line_start = true
       end
 
@@ -18,8 +19,11 @@ module Termify
             @io << @prefix
             @at_line_start = false
           end
+          if char == '\n'
+            @io << @suffix unless @suffix.empty?
+            @at_line_start = true
+          end
           @io << char
-          @at_line_start = (char == '\n')
         end
       end
 

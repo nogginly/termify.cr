@@ -182,6 +182,23 @@ Spectator.describe Termify::Markdown::CodeRenderer do
     end
   end
 
+  # -- background erase to EOL ------------------------------------------------
+
+  describe "background color erase to EOL" do
+    it "emits ERASE_LINE before RESET when style has a bg color" do
+      style = CodeBlockStyle.new(bg: Colorize::ColorANSI::DarkGray)
+      cr, io = make_renderer(style: style)
+      cr.feed("code")
+      expect(io.to_s).to contain(ANSI::ERASE_LINE)
+    end
+
+    it "does not emit ERASE_LINE when style has no bg color" do
+      cr, io = make_renderer
+      cr.feed("code")
+      expect(io.to_s).to_not contain(ANSI::ERASE_LINE)
+    end
+  end
+
   # -- highlighting -----------------------------------------------------------
 
   describe "highlighting" do

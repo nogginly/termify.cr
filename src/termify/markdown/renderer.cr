@@ -261,7 +261,14 @@ module Termify
         style = @stylesheet[BlockElement::Blockquote]
         ansi = style.to_ansi
         prefix = style.line_prefix || ""
-        wrapped_io = BlockquoteIO.new(@io, list_visual_indent + ansi + prefix)
+        # Emit EL+RESET suffix only on the outermost BlockquoteIO.
+        # Inner BIOs must use an empty suffix so the bg color stays active
+        # past their \n and the outermost EL fires while bg is still set.
+        # An inner RESET before the outer EL would clear the bg and cause
+        # the outer EL to fill with the terminal default instead of the bg color.
+        is_nested = @io.is_a?(BlockquoteIO)
+        suffix = (style.bg && !ansi.empty? && !is_nested) ? ANSI::ERASE_LINE + ANSI::RESET : ""
+        wrapped_io = BlockquoteIO.new(@io, list_visual_indent + ansi + prefix, suffix)
         @quote_renderer = Renderer.new(wrapped_io, @stylesheet)
       end
 
@@ -345,9 +352,10 @@ module Termify
         style = @stylesheet[element]
         ansi = style.to_ansi
         prefix = style.line_prefix || ""
+        erase = (style.bg && !ansi.empty?) ? ANSI::ERASE_LINE : ""
         reset = ansi.empty? ? "" : ANSI::RESET
         list_indent = io.same?(@io) ? list_visual_indent : ""
-        io << ansi << list_indent << prefix << render_inline(text, style) << reset << style.line_suffix
+        io << ansi << list_indent << prefix << render_inline(text, style) << erase << reset << style.line_suffix
         io << '\n' unless chomp
 
         # sometimes we write an empty line, so remember that
@@ -360,8 +368,9 @@ module Termify
         style = @stylesheet[element]
         ansi = style.to_ansi
         prefix = style.line_prefix || ""
+        erase = (style.bg && !ansi.empty?) ? ANSI::ERASE_LINE : ""
         reset = ansi.empty? ? "" : ANSI::RESET
-        @io << ansi << list_visual_indent << prefix << text << reset << '\n'
+        @io << ansi << list_visual_indent << prefix << text << erase << reset << '\n'
       end
 
       # Left-to-right inline scanner. Supported spans (in priority order):
@@ -727,8 +736,9 @@ module Termify
         open_block(BlockElement::ListItem)
         style = @stylesheet[BlockElement::ListItem]
         ansi = style.to_ansi
+        erase = (style.bg && !ansi.empty?) ? ANSI::ERASE_LINE : ""
         reset = ansi.empty? ? "" : ANSI::RESET
-        @io << ansi << list_prefix << render_inline(content, style) << reset << (style.line_suffix || "") << '\n'
+        @io << ansi << list_prefix << render_inline(content, style) << erase << reset << (style.line_suffix || "") << '\n'
         @current_line_empty = false
       end
     end

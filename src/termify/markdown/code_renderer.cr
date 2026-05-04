@@ -107,8 +107,9 @@ module Termify
       private def emit_plain_line(line : String, number : Int32) : Nil
         ansi = @style.to_ansi
         prefix = @style.line_prefix || ""
+        erase = (@style.bg && !ansi.empty?) ? ANSI::ERASE_LINE : ""
         reset = ansi.empty? ? "" : ANSI::RESET
-        @io << ansi << @indent << gutter_for(number, ansi) << prefix << line << reset << '\n'
+        @io << ansi << @indent << gutter_for(number, ansi) << prefix << line << erase << reset << '\n'
       end
 
       private def gutter_for(number : Int32, ansi : String) : String
