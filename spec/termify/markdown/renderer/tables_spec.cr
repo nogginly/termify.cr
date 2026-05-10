@@ -57,7 +57,13 @@ Spectator.describe Termify::Markdown::Renderer do
     end
 
     it "doesn't fail when more data columns than headers" do
-      expect { render_block("|Heading1|\n|-------:|---|\n|    row1|  Lorem ipsum dolor sit amet|") }.not_to raise_error(IndexError)
+      input = "|Heading1|\n|-------:|---|\n|    row1|  Lorem ipsum dolor sit amet|"
+      expect { render_block(input) }.not_to raise_error(IndexError)
+    end
+
+    it "doesn't fail when more data columns than headers, v2" do
+      input = "|Heading1|\n|-------|\n|    row1|  Lorem ipsum dolor sit amet|"
+      expect { render_block(input) }.not_to raise_error(IndexError)
     end
   end
 end
