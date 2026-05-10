@@ -133,6 +133,12 @@ Right aligned columns
 |    row2|Lorem ipsum `dolor` sit amet|
 |    row3|  Lorem ipsum dolor sit amet|
 
+Weird table
+
+|Heading1|
+|-------:|---------------------------:|
+|    row1|  Lorem ipsum dolor sit amet|
+
 ### HTML
 
 This is inline <span style="color: red;">html</span>

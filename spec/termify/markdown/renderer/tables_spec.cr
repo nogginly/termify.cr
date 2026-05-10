@@ -55,5 +55,9 @@ Spectator.describe Termify::Markdown::Renderer do
       expect(table_line).not_to be_nil
       expect(table_line.not_nil!.starts_with?(" ")).to be_true
     end
+
+    it "doesn't fail when more data columns than headers" do
+      expect { render_block("|Heading1|\n|-------:|---|\n|    row1|  Lorem ipsum dolor sit amet|") }.not_to raise_error(IndexError)
+    end
   end
 end

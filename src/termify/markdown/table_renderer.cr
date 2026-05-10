@@ -45,11 +45,11 @@ module Termify
           row_divider_frequency: 1,
           header_styler: ->(content : String) { content.colorize.bold.to_s })
         max_cols.times do |i|
-          align = convert(alignments[i])
+          align = convert(alignments[i]?)
           table.add_column(i,
             header_alignment: align,
             body_alignment: align,
-            header: strip_escaped_codes(header_cells[i])) do |row|
+            header: strip_escaped_codes(header_cells[i]? || "")) do |row|
             strip_escaped_codes(row[i]) || ""
           end
         end
