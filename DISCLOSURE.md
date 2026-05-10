@@ -12,7 +12,7 @@ Based on that, `termify.cr` is _by design_ a **[Level 5](https://www.visidata.or
 
 I worked with Claude's Sonnet 4.6 (Adaptive) via the web UI using a free plan to develop this shard. It was an iterative process. I started with a motivation + planning prompt and then worked through the design until it was ready to start implementing.
 
-One difference: with the [`xlsx.cr`](https://github.com/nogginly/xlsx.cr) project I worked with a single Claude session over multiple days. This time I wanted to try working with multiple sessions, handing off after roughly each day.
+One difference: with the [`termify.cr`](https://github.com/nogginly/termify.cr) project I worked with a single Claude session over multiple days. This time I wanted to try working with multiple sessions, handing off after roughly each day.
 
 ## Opening prompt
 
@@ -44,13 +44,11 @@ One difference: with the [`xlsx.cr`](https://github.com/nogginly/xlsx.cr) projec
 
 We didn't start implementing a single file until we were clear about the following:
 
-- Usage pattern for the API, both to make fresh XLSX document and to be able to use a template.
+- Usage pattern for the API
 - File / folder structure, keeping internals isolated, and well separated from the main components
 - Testing (using `spectator`) from the beginning, which Claude had to learn about
 
-It took several days and many stops and starts because I'm using the free plan and ran out of my "free messages" often. The lesson learned from the `xlsx.cr` project was that the breaks gave me time to think and understand the work done, and this in turn helped me formulate next steps better.
-
-At the end of the first day, and every day or so afterward, I asked Claude to create a handoff document that I then pasted in with a continuation prompt in a fresh session.
+It took several days and many stops and starts because I'm using the free plan and ran out of my "free messages" often. At the end of the first day, and every day or so afterward, I asked Claude to create a handoff document that I then pasted in with a continuation prompt in a fresh session.
 
 ## To split a session, or not
 
