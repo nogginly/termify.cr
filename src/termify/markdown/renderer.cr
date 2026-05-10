@@ -96,24 +96,29 @@ module Termify
       def feed(chunk : String) : Nil
         raise "Renderer is closed" if @closed
         @buf << chunk
-        flush_complete_lines
+        flush_complete_lines if chunk.includes?('\n')
       end
 
-      # Flushes any buffered content and marks the renderer closed.
-      # Idempotent: safe to call more than once.
+      # Resets the renderer (see `#reset`) and marks the renderer closed.
       def close : Nil
         return if @closed
         @closed = true
+        reset
+      end
+
+      def closed? : Bool
+        @closed
+      end
+
+      # Flushes any buffered content AND resets the renderer, closing off
+      # any block/list/blockquote/table states.
+      def reset
         flush_complete_lines
         remainder = @buf.to_s
         process_line(remainder) unless remainder.empty?
         close_quote_renderer
         flush_table if @block_mode.table?
         close_block(nil)
-      end
-
-      def closed? : Bool
-        @closed
       end
 
       # -- private -----------------------------------------------------------
@@ -185,12 +190,14 @@ module Termify
 
       # Parses and buffers one table row; silently drops separator rows.
       private def buffer_table_row(line : String, style : Style) : Nil
+        original_line = line
+
         # trim first/last column separator
         line = line[1..-1] if line.starts_with?('|')
         line = line[0..-2] if line.ends_with?('|')
         cells = line.split("|").map(&.strip)
 
-        if TABLE_SEPARATOR.matches?(line)
+        if TABLE_SEPARATOR.matches?(original_line)
           @table_col_alignments = cells.map do |cell|
             case cell
             when .ends_with?(':') then TableRenderer::ColumnAlignment::Right
