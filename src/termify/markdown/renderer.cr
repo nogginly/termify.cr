@@ -115,6 +115,7 @@ module Termify
       def reset
         flush_complete_lines
         remainder = @buf.to_s
+        @buf = String::Builder.new
         process_line(remainder) unless remainder.empty?
         close_quote_renderer
         flush_table if @block_mode.table?

@@ -21,6 +21,19 @@ Spectator.describe Termify::Markdown::Renderer do
   end
 
   # -------------------------------------------------------------------------
+  # Reset method
+  # -------------------------------------------------------------------------
+  describe "#reset" do
+    it "can reuse renderer after reset" do
+      io = IO::Memory.new
+      r = Renderer.new(io)
+      r.feed("Hello" + "\n")
+      r.reset
+      expect { r.feed("Hello" + "\n") }.not_to raise_error(Exception)
+    end
+  end
+
+  # -------------------------------------------------------------------------
   # List item dispatch (block processing routes these correctly)
   # -------------------------------------------------------------------------
   describe "list items" do
