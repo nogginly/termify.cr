@@ -1,20 +1,22 @@
-# AI Usage Disclosure for Termify
+# Disclosures for Termify
 
-This shard is part of my experimentation with using an LLM to build small, well-defined libraries _that I understand as if I wrote it myself_ for use by my otherwise hand-written applications.
+## AI Usage
+
+This project is an example of my selective use of LLMs to build small, well-defined, and useful libraries and tools _that I understand as if I wrote them myself_.
+
+### Level 5
 
 The "[Using AI to Contribute to Open Source](https://www.visidata.org/blog/2026/ai/)" article provides an excellent framework for identifying how AI is used.
 
-Based on that, `termify.cr` is _by design_ a **[Level 5](https://www.visidata.org/blog/2026/ai/#level-5%3A-bots-coded%2C-human-understands-completely)** project.
+This is _by design_ a **[Level 5](https://www.visidata.org/blog/2026/ai/#level-5%3A-bots-coded%2C-human-understands-completely)** project.
 
-> Updated 2026-05-04
-
-## Approach
+### Approach
 
 I worked with Claude's Sonnet 4.6 (Adaptive) via the web UI using a free plan to develop this shard. It was an iterative process. I started with a motivation + planning prompt and then worked through the design until it was ready to start implementing.
 
 One difference: with the [`termify.cr`](https://github.com/nogginly/termify.cr) project I worked with a single Claude session over multiple days. This time I wanted to try working with multiple sessions, handing off after roughly each day.
 
-## Opening prompt
+#### Opening prompt
 
 > I would like to implement a Crystal shard / library that will allow me to convert incoming Markdown text and convert and render to a terminal with ANSI escape > code formatting applied based on the type of Markdown. The incoming text will arrive in fragments, which means we don't always have entire lines or blocks, and > which means the renderer needs to maintain current state as fragments arrive.
 >
@@ -40,7 +42,7 @@ One difference: with the [`termify.cr`](https://github.com/nogginly/termify.cr) 
 > Before we implement anything, let me know what you think.
 >
 
-## Engagement
+#### Engagement
 
 We didn't start implementing a single file until we were clear about the following:
 
@@ -50,7 +52,7 @@ We didn't start implementing a single file until we were clear about the followi
 
 It took several days and many stops and starts because I'm using the free plan and ran out of my "free messages" often. At the end of the first day, and every day or so afterward, I asked Claude to create a handoff document that I then pasted in with a continuation prompt in a fresh session.
 
-## To split a session, or not
+#### To split a session, or not
 
 Interestingly, this made the experience more tedious. The handoff over the days lost information, especially some design decisions from day 1 and 2 disappeared.
 
@@ -60,7 +62,7 @@ It also, I think, took more time since Claude had to "re-learn" code across hand
 
 After five such hand-offs, I almost decided to continue with one session. But I decided to persevere, albeit at a slower pace, handing off from a session to a new one at a major feature boundary.
 
-## How much to hand-off
+#### How much to hand-off
 
 After the first few hand-offs I noticed that I didn't gain the token benefit I was hoping for. This was mainly due to the hand-off document including all the source code, and over time the project was getting bigger and the hand-off was itself now expensive.
 
@@ -68,6 +70,6 @@ While I was maintaining a Github repo through the project, it was private. At th
 
 In hindsight this is obvious. Letting Claude access the public repo (readonly!) and carrying only our design considerations and decisions and lessons learned across sessions made the sessions much more efficient _once_ the project reached a certain size.
 
-## Lessons
+#### Lessons
 
 For my next Level 5 project I plan to (a) use a single session to get to a minimal functional state, and (b) switch to multi-session by making the repo public and using a lean hand-off.
