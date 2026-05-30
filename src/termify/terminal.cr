@@ -23,7 +23,7 @@ module Termify
             str_io << ch
           end
         end
-        response.match(/\[(\d+);/).try { |m| m[1].to_i } || 1
+        response.match(/\[(\d+);/).try(&.[1].to_i) || 1
       end
     end
 
@@ -41,7 +41,7 @@ module Termify
     # Returns true if the terminal advertises truecolor support.
     # Callers should fall back to 256-color or 8/16 if this returns false.
     def truecolor_supported? : Bool
-      color_supported? && ENV["COLORTERM"]?.try { |v| v == "truecolor" || v == "24bit" } || false
+      color_supported? && ENV["COLORTERM"]?.try { |value| value == "truecolor" || value == "24bit" } || false
     end
 
     # Private constructor
