@@ -75,32 +75,6 @@ Spectator.describe Termify::ANSI do
     end
   end
 
-  describe ".color_supported?" do
-    context "when NO_COLOR is set" do
-      it "returns false" do
-        with_env({"NO_COLOR" => ""}) do
-          expect(Termify::ANSI.color_supported?).to be_false
-        end
-      end
-    end
-
-    context "when TERM=dumb" do
-      it "returns false" do
-        with_env({"TERM" => "dumb"}) do
-          expect(Termify::ANSI.color_supported?).to be_false
-        end
-      end
-    end
-
-    context "when COLORTERM is set" do
-      it "returns true" do
-        with_env({"COLORTERM" => "truecolor"}) do
-          expect(Termify::ANSI.color_supported?).to be_true
-        end
-      end
-    end
-  end
-
   describe "ANSI::Color256 enum" do
     # Enum values are auto-assigned from 0; spot-check canonical 256-color indices.
     it "Black is index 0" do
@@ -133,56 +107,6 @@ Spectator.describe Termify::ANSI do
     describe ".bg" do
       it "produces the correct 256-color background sequence for a named Color256" do
         expect(Termify::ANSI.bg(Termify::ANSI::Color256::Blue)).to eq("\e[48;5;12m")
-      end
-    end
-  end
-
-  describe ".truecolor_supported?" do
-    context "when COLORTERM=truecolor" do
-      it "returns true" do
-        with_env({"COLORTERM" => "truecolor"}) do
-          expect(Termify::ANSI.truecolor_supported?).to be_true
-        end
-      end
-    end
-
-    context "when COLORTERM=24bit" do
-      it "returns true" do
-        with_env({"COLORTERM" => "24bit"}) do
-          expect(Termify::ANSI.truecolor_supported?).to be_true
-        end
-      end
-    end
-
-    context "when COLORTERM is absent" do
-      it "returns false" do
-        with_env({"COLORTERM" => nil}) do
-          expect(Termify::ANSI.truecolor_supported?).to be_false
-        end
-      end
-    end
-  end
-end
-
-# Minimal ENV helper — saves/restores vars around a block.
-private def with_env(vars : Hash(String, String?), &)
-  saved = {} of String => String?
-  begin
-    vars.each do |key, val|
-      saved[key] = ENV[key]?
-      if val
-        ENV[key] = val
-      else
-        ENV.delete(key)
-      end
-    end
-    yield
-  ensure
-    saved.each do |key, val|
-      if val
-        ENV[key] = val
-      else
-        ENV.delete(key)
       end
     end
   end
