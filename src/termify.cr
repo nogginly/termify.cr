@@ -1,5 +1,6 @@
 require "./termify/*"
 require "./termify/markdown/*"
+require "./termify/tui/*"
 
 module Termify
   # Render Markdown to an ANSI-compatible terminal via the given `io`
@@ -17,6 +18,11 @@ module Termify
   def self.markdown_stylesheet(styles : Hash(Symbol | String, NamedTuple),
                                merge = Markdown::Stylesheet.default)
     Markdown::Stylesheet.new(styles, merge)
+  end
+
+  # Get the singleton instance of `Terminal`
+  def self.terminal
+    @@terminal ||= Terminal.new
   end
 
   # :nodoc:
