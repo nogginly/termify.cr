@@ -66,94 +66,14 @@ module Termify
     end
 
     # -------------------------------------------------------------------------
-    # Terminal detection
+    # Writing
     # -------------------------------------------------------------------------
 
-    # Returns true if the terminal is likely to support ANSI color output.
-    #
-    # Rules (in priority order):
-    #   1. NO_COLOR set (any value) → false  (no-color.org)
-    #   2. TERM=dumb                → false
-    #   3. COLORTERM set            → true   (explicit opt-in)
-    #   4. Platform check           → true on POSIX; Windows path below
-    #   5. Fallback                 → false
-    def self.color_supported? : Bool
-      return false if ENV.has_key?("NO_COLOR")
-      return false if ENV["TERM"]? == "dumb"
-      return true if ENV.has_key?("COLORTERM")
-
-      {% if flag?(:win32) %}
-        windows_color_supported?
-      {% else %}
-        # Linux / macOS / BSD — ANSI is safe by default
-        true
-      {% end %}
+    # Repeat a character using ANSI 'n' repetitions
+    def self.repeat(char : String, times : Int32) : String
+      return "" if times <= 0
+      return char if times == 1
+      "#{char}\e[#{times - 1}b"
     end
-
-    # Returns true if the terminal advertises truecolor support.
-    # Callers should fall back to 256-color or 8/16 if this returns false.
-    def self.truecolor_supported? : Bool
-      color_supported? && ENV["COLORTERM"]?.try { |v| v == "truecolor" || v == "24bit" } || false
-    end
-
-    # -------------------------------------------------------------------------
-    # Windows VT processing (compile-guarded — elided on POSIX)
-    # -------------------------------------------------------------------------
-    {% if flag?(:win32) %}
-      @[Link("kernel32")]
-      lib LibKernel32
-        alias HANDLE = Void*
-        alias DWORD = UInt32
-
-        STD_OUTPUT_HANDLE                  =    -11_i32
-        ENABLE_VIRTUAL_TERMINAL_PROCESSING = 0x0004_u32
-
-        fun GetStdHandle(nStdHandle : DWORD) : HANDLE
-        fun GetConsoleMode(hConsoleHandle : HANDLE, lpMode : UInt32*) : Int32
-        fun SetConsoleMode(hConsoleHandle : HANDLE, dwMode : UInt32) : Int32
-      end
-
-      # Attempts to enable VT processing on Windows ConHost (Win10 1511+).
-      # No-op if already enabled or if running under Windows Terminal.
-      # Should be called once at program startup on Windows.
-      def self.enable_vt_processing : Nil
-        return if ENV.has_key?("WT_SESSION")
-
-        handle = LibKernel32.GetStdHandle(LibKernel32::STD_OUTPUT_HANDLE)
-        return if handle.null?
-
-        mode = 0_u32
-        return unless LibKernel32.GetConsoleMode(handle, pointerof(mode)) != 0
-
-        unless (mode & LibKernel32::ENABLE_VIRTUAL_TERMINAL_PROCESSING) != 0
-          LibKernel32.SetConsoleMode(
-            handle,
-            mode | LibKernel32::ENABLE_VIRTUAL_TERMINAL_PROCESSING
-          )
-        end
-      end
-
-      private def self.windows_color_supported? : Bool
-        # Windows Terminal sets WT_SESSION
-        return true if ENV.has_key?("WT_SESSION")
-
-        # Try ConHost VT — probe by attempting SetConsoleMode
-        handle = LibKernel32.GetStdHandle(LibKernel32::STD_OUTPUT_HANDLE)
-        return false if handle.null?
-
-        mode = 0_u32
-        return false unless LibKernel32.GetConsoleMode(handle, pointerof(mode)) != 0
-
-        result = LibKernel32.SetConsoleMode(
-          handle,
-          mode | LibKernel32::ENABLE_VIRTUAL_TERMINAL_PROCESSING
-        )
-        result != 0
-      end
-    {% else %}
-      # No-op on POSIX — VT processing is always available.
-      def self.enable_vt_processing : Nil
-      end
-    {% end %}
   end
 end

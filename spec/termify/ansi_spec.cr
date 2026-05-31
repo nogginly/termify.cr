@@ -75,32 +75,6 @@ Spectator.describe Termify::ANSI do
     end
   end
 
-  describe ".color_supported?" do
-    context "when NO_COLOR is set" do
-      it "returns false" do
-        with_env({"NO_COLOR" => ""}) do
-          expect(Termify::ANSI.color_supported?).to be_false
-        end
-      end
-    end
-
-    context "when TERM=dumb" do
-      it "returns false" do
-        with_env({"TERM" => "dumb"}) do
-          expect(Termify::ANSI.color_supported?).to be_false
-        end
-      end
-    end
-
-    context "when COLORTERM is set" do
-      it "returns true" do
-        with_env({"COLORTERM" => "truecolor"}) do
-          expect(Termify::ANSI.color_supported?).to be_true
-        end
-      end
-    end
-  end
-
   describe "ANSI::Color256 enum" do
     # Enum values are auto-assigned from 0; spot-check canonical 256-color indices.
     it "Black is index 0" do
@@ -137,53 +111,25 @@ Spectator.describe Termify::ANSI do
     end
   end
 
-  describe ".truecolor_supported?" do
-    context "when COLORTERM=truecolor" do
-      it "returns true" do
-        with_env({"COLORTERM" => "truecolor"}) do
-          expect(Termify::ANSI.truecolor_supported?).to be_true
-        end
-      end
+  describe ".repeat" do
+    it "returns empty string for n=0" do
+      expect(Termify::ANSI.repeat("-", 0)).to eq("")
     end
 
-    context "when COLORTERM=24bit" do
-      it "returns true" do
-        with_env({"COLORTERM" => "24bit"}) do
-          expect(Termify::ANSI.truecolor_supported?).to be_true
-        end
-      end
+    it "returns empty string for negative n" do
+      expect(Termify::ANSI.repeat("-", -1)).to eq("")
     end
 
-    context "when COLORTERM is absent" do
-      it "returns false" do
-        with_env({"COLORTERM" => nil}) do
-          expect(Termify::ANSI.truecolor_supported?).to be_false
-        end
-      end
+    it "returns the char itself for n=1" do
+      expect(Termify::ANSI.repeat("-", 1)).to eq("-")
     end
-  end
-end
 
-# Minimal ENV helper — saves/restores vars around a block.
-private def with_env(vars : Hash(String, String?), &)
-  saved = {} of String => String?
-  begin
-    vars.each do |key, val|
-      saved[key] = ENV[key]?
-      if val
-        ENV[key] = val
-      else
-        ENV.delete(key)
-      end
+    it "returns char + REP sequence for n>1" do
+      expect(Termify::ANSI.repeat("-", 3)).to eq("-\e[2b")
     end
-    yield
-  ensure
-    saved.each do |key, val|
-      if val
-        ENV[key] = val
-      else
-        ENV.delete(key)
-      end
+
+    it "REP count is n-1" do
+      expect(Termify::ANSI.repeat("*", 5)).to eq("*\e[4b")
     end
   end
 end
