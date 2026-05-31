@@ -20,7 +20,7 @@ module Termify
     Markdown::Stylesheet.new(styles, merge)
   end
 
-  # Get the singleton instance of `Terminal`
+  # Get the singleton instance of `Terminal`. Not thread-safe, so make sure to call it only once.
   def self.terminal
     @@terminal ||= Terminal.new
   end
