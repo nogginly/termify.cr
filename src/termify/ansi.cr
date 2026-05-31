@@ -9,11 +9,6 @@ module Termify
   # Colors are expressed as ANSI::Color values (ColorANSI, Color256, ColorRGB).
   # Use ANSI.fg / ANSI.bg to convert them to escape sequences.
   module ANSI
-    include Cursor
-    include Screen
-    include Clear
-    include Mouse
-
     alias Color = Colorize::Color | Color256
 
     # -------------------------------------------------------------------------
