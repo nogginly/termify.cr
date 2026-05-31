@@ -22,3 +22,5 @@ targets:
     main: samples/md2term.cr
   hello:
     main: samples/hello.cr
+  scrollcat:
+    main: samples/scrollcat.cr
