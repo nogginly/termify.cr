@@ -61,7 +61,7 @@ module Termify
       end
     end
 
-    def self.color_supported? : Bool
+    def color_supported? : Bool
       # Windows Terminal sets WT_SESSION
       ENV.has_key?("WT_SESSION") || super
     end
