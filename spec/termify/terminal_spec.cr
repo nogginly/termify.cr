@@ -25,6 +25,14 @@ Spectator.describe Termify::Terminal do
         end
       end
     end
+
+    context "when no suppressing env vars are set" do
+      it "returns true by default" do
+        with_env({"NO_COLOR" => nil, "TERM" => nil, "COLORTERM" => nil}) do
+          expect(Termify.terminal.color_supported?).to be_true
+        end
+      end
+    end
   end
 
   describe ".truecolor_supported?" do
@@ -47,6 +55,14 @@ Spectator.describe Termify::Terminal do
     context "when COLORTERM is absent" do
       it "returns false" do
         with_env({"COLORTERM" => nil}) do
+          expect(Termify.terminal.truecolor_supported?).to be_false
+        end
+      end
+    end
+
+    context "when color is not supported (NO_COLOR set)" do
+      it "returns false even if COLORTERM is set" do
+        with_env({"NO_COLOR" => "", "COLORTERM" => "truecolor"}) do
           expect(Termify.terminal.truecolor_supported?).to be_false
         end
       end

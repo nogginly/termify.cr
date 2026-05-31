@@ -110,4 +110,26 @@ Spectator.describe Termify::ANSI do
       end
     end
   end
+
+  describe ".repeat" do
+    it "returns empty string for n=0" do
+      expect(Termify::ANSI.repeat("-", 0)).to eq("")
+    end
+
+    it "returns empty string for negative n" do
+      expect(Termify::ANSI.repeat("-", -1)).to eq("")
+    end
+
+    it "returns the char itself for n=1" do
+      expect(Termify::ANSI.repeat("-", 1)).to eq("-")
+    end
+
+    it "returns char + REP sequence for n>1" do
+      expect(Termify::ANSI.repeat("-", 3)).to eq("-\e[2b")
+    end
+
+    it "REP count is n-1" do
+      expect(Termify::ANSI.repeat("*", 5)).to eq("*\e[4b")
+    end
+  end
 end
