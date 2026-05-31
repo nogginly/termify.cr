@@ -41,7 +41,8 @@ module Termify
     # Returns true if the terminal advertises truecolor support.
     # Callers should fall back to 256-color or 8/16 if this returns false.
     def truecolor_supported? : Bool
-      color_supported? && ENV["COLORTERM"]?.try { |value| value == "truecolor" || value == "24bit" } || false
+      return false unless color_supported?
+      ENV["COLORTERM"]?.try { |value| value == "truecolor" || value == "24bit" } || false
     end
 
     # Private constructor
