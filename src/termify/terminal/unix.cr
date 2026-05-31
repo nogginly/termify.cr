@@ -1,16 +1,16 @@
 require "lib_c"
 
-{% if flag?(:linux) %}
-  VMIN  = 6
-  VTIME = 5
-{% elsif flag?(:darwin) %}
-  VMIN  = 16
-  VTIME = 17
-{% end %}
-
 module Termify
   class UnixTerminal
     include TerminalCommon
+
+    {% if flag?(:linux) %}
+      VMIN  = 6
+      VTIME = 5
+    {% elsif flag?(:darwin) %}
+      VMIN  = 16
+      VTIME = 17
+    {% end %}
 
     # Temporarily switch input to raw + VT mode, yield, then restore input mode.
     # Output mode is left as-is (already set up by setup_console).
