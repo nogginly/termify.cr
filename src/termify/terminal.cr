@@ -49,10 +49,12 @@ module Termify
   end
 end
 
+# Select the platform-specific terminal at compile-time
 {% if flag?(:linux) || flag?(:darwin) %}
   require "./terminal/unix.cr"
 {% elsif flag?(:windows) %}
   require "./terminal/windows.cr"
 {% else %}
+  # Raise compile-time error to indicate no Terminal supported on the platform
   raise "Terminal unsupported; requires Linux, macOS, or Windows."
 {% end %}
