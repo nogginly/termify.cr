@@ -1,7 +1,7 @@
 require "../../spec_helper"
 
 Spectator.describe Termify::ANSI::Cursor do
-  describe ".cursor_up" do
+  describe ".up" do
     it "returns short form for default (0)" do
       expect(Termify::ANSI::Cursor.up).to eq("\e[A")
     end
@@ -15,7 +15,7 @@ Spectator.describe Termify::ANSI::Cursor do
     end
   end
 
-  describe ".cursor_down" do
+  describe ".down" do
     it "returns short form for default (0)" do
       expect(Termify::ANSI::Cursor.down).to eq("\e[B")
     end
@@ -29,7 +29,7 @@ Spectator.describe Termify::ANSI::Cursor do
     end
   end
 
-  describe ".cursor_right" do
+  describe ".right" do
     it "returns short form for default (0)" do
       expect(Termify::ANSI::Cursor.right).to eq("\e[C")
     end
@@ -43,7 +43,7 @@ Spectator.describe Termify::ANSI::Cursor do
     end
   end
 
-  describe ".cursor_left" do
+  describe ".left" do
     it "returns short form for default (0)" do
       expect(Termify::ANSI::Cursor.left).to eq("\e[D")
     end
@@ -57,7 +57,7 @@ Spectator.describe Termify::ANSI::Cursor do
     end
   end
 
-  describe ".cursor_to" do
+  describe ".to" do
     it "returns home sequence when both are default (0)" do
       expect(Termify::ANSI::Cursor.to).to eq("\e[H")
     end
@@ -79,25 +79,25 @@ Spectator.describe Termify::ANSI::Cursor do
     end
   end
 
-  describe ".cursor_save" do
+  describe ".save" do
     it "returns the save sequence" do
       expect(Termify::ANSI::Cursor.save).to eq("\e7")
     end
   end
 
-  describe ".cursor_restore" do
+  describe ".restore" do
     it "returns the restore sequence" do
       expect(Termify::ANSI::Cursor.restore).to eq("\e8")
     end
   end
 
-  describe ".cursor_hide" do
+  describe ".hide" do
     it "returns the hide sequence" do
       expect(Termify::ANSI::Cursor.hide).to eq("\e[?25l")
     end
   end
 
-  describe ".cursor_show" do
+  describe ".show" do
     it "returns the show sequence" do
       expect(Termify::ANSI::Cursor.show).to eq("\e[?25h")
     end
