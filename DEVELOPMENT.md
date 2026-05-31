@@ -9,14 +9,15 @@
 
 ## Getting started
 
-|Command                        |Description                                                                       |
-|-------------------------------|----------------------------------------------------------------------------------|
-|`ops up`                       |Gets everything setup including `crystal` via `apt` or `brew` if applicable.      |
-|`ops build-debug` or `ops bd`  |Make a debug build of `benchmark` sample, in `bin/debug` folder.                  |
-|`ops build-release` or `ops br`|Make a release / production build of `benchmark` sample,  in `bin/release` folder.|
-|`ops lint`                     |Run `ameba` on the source code                                                    |
-|`ops clean`                    |Remove debug and release build files                                              |
-|`ops wipe`                     |In addition to cleaning, remove all compiler caches                               |
+|Command                             |Description                                                                       |
+|------------------------------------|----------------------------------------------------------------------------------|
+|`ops up`                            |Gets everything setup including `crystal` via `apt` or `brew` if applicable.      |
+|`ops build-debug` (or `build`, `bd`)|Make a debug build of `benchmark` sample, in `bin/debug` folder.                  |
+|`ops build-release` (or `br`)       |Make a release / production build of `benchmark` sample,  in `bin/release` folder.|
+|`ops lint`                          |Run `ameba` on the source code                                                    |
+|`ops test`                          |Run `crystal spec` on the source code                                             |
+|`ops clean`                         |Remove debug and release build files                                              |
+|`ops wipe`                          |In addition to cleaning, remove all compiler caches                               |
 
 ### Build and run for development
 
@@ -30,7 +31,7 @@ Run `ops build-debug` to make a debug build in the `bin/debug/` folder
 
 ## Samples
 
-### `sampes/md2term`
+### `samples/md2term`
 
 This is a simple test app that reads a given Markdown file and renders it using Termify.
 
@@ -38,7 +39,15 @@ This is a simple test app that reads a given Markdown file and renders it using 
 crystal run samples/mdterm.cr -- YOURMARKDOWNFILE.md
 ```
 
-### `sampes/etst01`
+### `samples/scrollcat`
+
+This is a simple test app that reads a given Markdown file and renders it within a mini scroll region. The following command uses a 10-line scrol region.
+
+```sh
+crystal run samples/scrollcat.cr -- README.md 10
+```
+
+### `samples/test01`
 
 This is a test app that has a Markdown string that it renders. I've been tweaking the Markdown to test aspects of the rendering.
 

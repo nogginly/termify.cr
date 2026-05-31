@@ -24,6 +24,16 @@ See [DISCLOSURE](DISCLOSURE.md) for how I used AI for this project.
 require "termify"
 ```
 
+### Setup platform `Terminal`
+
+```crystal
+term = Termify.terminal
+# Enable VT console
+term.setup_console
+# Ensure we restore terminal console settings
+at_exit { term.restore_console }
+```
+
 ### Rendering Markdown
 
 ```crystal
