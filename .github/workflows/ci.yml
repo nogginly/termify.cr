@@ -2,9 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
   pull_request:
-    branches: [ main ]
+    branches: [main]
 
 jobs:
   build-and-test:
@@ -37,10 +37,11 @@ jobs:
             bin/ameba
           key: ${{ runner.os }}-shards-${{ hashFiles('**/shard.lock') }}
 
-      - name: Install shards
-        run: shards check || shards install
-
       # ---- Build debug release and check code quality on one platform
+
+      - name: Install shards in dev mode
+        if: ${{ runner.os == 'Linux' }}
+        run: shards check || shards install
 
       - name: Setup debug environment (Linux)
         if: ${{ runner.os == 'Linux' }}
@@ -63,6 +64,9 @@ jobs:
         run: crystal spec -Dtest
 
       # ---- Build releases on all platforms
+      - name: Install shards for release mode
+        if: ${{ runner.os != 'Linux' }}
+        run: shards --production check || shards --production install
 
       # Non-Windows
       - name: Setup release environment
@@ -71,11 +75,11 @@ jobs:
 
       - name: Build Release
         if: ${{ runner.os != 'Windows' }}
-        run: SHARDS_BIN_PATH=bin/release shards build --release
+        run: SHARDS_BIN_PATH=bin/release shards --production build --release
 
       - name: Run Sample `md2term`
         if: ${{ runner.os != 'Windows' }}
-        run: "bin/release/md2term 2>&1 | grep \"Usage: md2term\""
+        run: 'bin/release/md2term 2>&1 | grep "Usage: md2term"'
 
       # Ah, Windows.
       - name: Setup release environment (Windows)
@@ -91,4 +95,4 @@ jobs:
         env:
           SHARDS_BIN_PATH: "bin/release"
         run: |
-          shards build --release
+          shards --production build --release
