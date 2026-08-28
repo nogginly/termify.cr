@@ -30,7 +30,7 @@ Spectator.describe Termify::Markdown::Renderer do
     end
 
     it "renders inline markup inside a cell" do
-      output = render_block("Header\n------\n**bold cell**\n")
+      output = render_block("Header | Other\n-------|------\n**bold cell** | plain\n")
       expect(output).to contain("bold cell")
       expect(output).to contain(ANSI::BOLD)
     end
@@ -54,6 +54,59 @@ Spectator.describe Termify::Markdown::Renderer do
       table_line = output.split('\n').find { |l| l.includes?("A") && l.includes?("B") }
       expect(table_line).not_to be_nil
       expect(table_line.not_nil!.starts_with?(" ")).to be_true
+    end
+
+    it "does not treat a paragraph containing a pipe as a table" do
+      output = render_block("use a | b to choose\n\nnext paragraph\n")
+      expect(output).to contain("use a | b to choose")
+      expect(output).to contain("next paragraph")
+    end
+
+    it "does not treat a logical-or in prose as a table" do
+      output = render_block("Write `if x || y` to test either.\n")
+      expect(output).to contain("if x || y")
+    end
+
+    it "renders a heading containing a pipe as a heading" do
+      output = render_block("# Title | Subtitle\n")
+      expect(output).to contain("Title | Subtitle")
+      expect(output).to contain(ANSI::BOLD)
+    end
+
+    it "releases an unconfirmed row when the next line is not a delimiter" do
+      output = render_block("a | b\nnot a delimiter\n")
+      expect(output).to contain("a | b")
+      expect(output).to contain("not a delimiter")
+    end
+
+    it "releases an unconfirmed row at end of input" do
+      output = render_block("a | b\n")
+      expect(output).to contain("a | b")
+    end
+
+    it "starts a table when the delimiter follows a released row" do
+      output = render_block("prose | with pipe\nName | Age\n-----|----\nAlice | 30\n")
+      expect(output).to contain("prose | with pipe")
+      expect(output).to contain("Alice")
+      expect(output).to contain("30")
+    end
+
+    it "treats a bare dashed line as a horizontal rule, not a delimiter" do
+      output = render_block("paragraph\n\n-----\n\nmore\n")
+      expect(output).to contain("-----")
+      expect(output).to contain("more")
+    end
+
+    it "accepts alignment colons in the delimiter row" do
+      output = render_block("| L | C | R |\n|:--|:-:|--:|\n| a | b | c |\n")
+      expect(output).to contain("a")
+      expect(output).to contain("c")
+    end
+
+    it "does not treat a pipe followed by a blank line as a table" do
+      output = render_block("a | b\n\nparagraph\n")
+      expect(output).to contain("a | b")
+      expect(output).to contain("paragraph")
     end
 
     it "doesn't fail when more data columns than headers" do

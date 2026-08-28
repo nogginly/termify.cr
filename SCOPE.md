@@ -23,6 +23,20 @@ containing a pipe enters `BlockMode::Table` -- including `if x || y` and, becaus
 Anchor both branches, and consider letting heading and fence detection win over
 table detection.
 
+**A blockquote after a table swallows the table.** In `process_line`,
+`process_quote_line` runs before `process_table_line`. When a confirmed table is
+open and the next line starts with `>`, the quote handler consumes it and
+`flush_table` never runs, so the buffered rows are dropped. Same root cause as the
+stranded-candidate problem -- a later handler consuming a line that an earlier
+state machine still needed. Either flush the table before quote routing, or hoist
+the open-table check the way `resolve_table_candidate` was hoisted.
+
+**Table detection is confused by escaped and inline-code pipes.** `table_row?`
+counts any pipe, so `` `a | b` `` in prose and `a \| b` both raise a candidate.
+Harmless today -- the candidate is released as a paragraph unless a delimiter row
+happens to follow -- but the same blindness would produce wrong cell splits in
+`buffer_table_row` for a real table containing either.
+
 **`Terminal#cursor_row` can hang forever.** The read loop breaks on `'R'`, but
 `STDIN.read_char` returns `nil` at EOF, which never equals `'R'`. Any non-TTY stdin
 -- CI, a pipe, a redirect -- spins the loop indefinitely. Break on `nil`, and
