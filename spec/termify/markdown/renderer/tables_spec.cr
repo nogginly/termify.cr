@@ -29,10 +29,25 @@ Spectator.describe Termify::Markdown::Renderer do
       expect(output).to contain("b")
     end
 
-    it "renders inline markup inside a cell" do
-      output = render_block("Header | Other\n-------|------\n**bold cell** | plain\n")
-      expect(output).to contain("bold cell")
-      expect(output).to contain(ANSI::BOLD)
+    # Inline styling does not survive a table cell: TableRenderer strips escape
+    # sequences before handing text to tablo, which would otherwise count them
+    # as visible width. The markup is still consumed, so the delimiters do not
+    # leak into the output. See SCOPE.md.
+    #
+    # Colorize is pinned off for this example. TableRenderer bolds the header
+    # row via Colorize, which is TTY-conditional, so an unpinned run emits bold
+    # interactively and not in CI -- and would pass for the wrong reason.
+    it "consumes inline markup inside a cell without styling it" do
+      was_enabled = Colorize.enabled?
+      Colorize.enabled = false
+      begin
+        output = render_block("Header | Other\n-------|------\n**bold cell** | plain\n")
+        expect(output).to contain("bold cell")
+        expect(output).not_to contain("**")
+        expect(output).not_to contain(ANSI::BOLD)
+      ensure
+        Colorize.enabled = was_enabled
+      end
     end
 
     it "terminates on a non-table line and renders what follows normally" do

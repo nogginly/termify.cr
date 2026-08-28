@@ -23,6 +23,25 @@ containing a pipe enters `BlockMode::Table` -- including `if x || y` and, becaus
 Anchor both branches, and consider letting heading and fence detection win over
 table detection.
 
+**Table output depends on whether STDOUT is a TTY.** `TableRenderer` styles
+borders and the header row through `Colorize`, whose `enabled` flag defaults to
+`STDOUT.tty? && STDERR.tty?`. Everything else in the shard emits ANSI
+unconditionally via the `ANSI` module. Rendering the same Markdown into an
+`IO::Memory` therefore yields different bytes interactively than in a pipe, which
+is wrong for a library that hands output to a caller-supplied IO -- the caller
+decides where it goes, and may know better than `STDOUT` does. It also makes specs
+pass locally and fail in CI. Route table styling through `ANSI` and let the
+stylesheet own the decision.
+
+**Inline styling is discarded in table cells.** `buffer_table_row` runs
+`render_inline` over every cell, then `TableRenderer` strips all escape sequences
+back out via `strip_escaped_codes` before handing text to tablo, which counts
+escape bytes as visible width. Bold, colour and links are therefore lost in tables,
+and the work of rendering them is wasted. The behaviour is also inconsistent: the
+`render_raw_table` fallback keeps the escapes, so styling appears only when tablo
+fails. A fix needs tablo to size columns on a display width supplied by the caller,
+or the styling to be re-applied to cell text after layout.
+
 **A blockquote after a table swallows the table.** In `process_line`,
 `process_quote_line` runs before `process_table_line`. When a confirmed table is
 open and the next line starts with `>`, the quote handler consumes it and
