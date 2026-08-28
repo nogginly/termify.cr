@@ -34,7 +34,7 @@ jobs:
         with:
           path: |
             lib
-            bin/ameba
+            bin/ameba*
           key: ${{ runner.os }}-shards-${{ hashFiles('**/shard.lock') }}
 
       - name: Install shards
