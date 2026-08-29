@@ -55,6 +55,26 @@ Spectator.describe Termify::Markdown::Renderer do
       expect(output).to contain("following paragraph")
     end
 
+    it "flushes the table when a blockquote follows immediately" do
+      output = render_block("A | B\n--|--\n1 | 2\n> quoted\n")
+      expect(output).to contain("1")
+      expect(output).to contain("2")
+      expect(output).to contain("quoted")
+    end
+
+    it "flushes the table when a heading follows immediately" do
+      output = render_block("A | B\n--|--\n1 | 2\n# Heading\n")
+      expect(output).to contain("1")
+      expect(output).to contain("Heading")
+    end
+
+    it "does not disturb blank line accounting around a table" do
+      output = render_block("before\n\nA | B\n--|--\n1 | 2\n\nafter\n")
+      expect(output).to contain("before")
+      expect(output).to contain("after")
+      expect(output).not_to contain("\n\n\n")
+    end
+
     it "renders a table inside a list continuation" do
       output = render_block("1. item\n\n   A | B\n   --|--\n   1 | 2\n")
       expect(output).to contain("item")

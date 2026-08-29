@@ -21,10 +21,21 @@ module Termify
         end
       end
 
+      # Above this width an unindented table is re-packed to the terminal
+      # width rather than left to overflow.
+      private TERMINAL_PACK_WIDTH = 100
+
+      # Above this width a table is packed down to it. Wide enough to be
+      # useful, narrow enough to stay readable in a split pane.
+      private COMFORTABLE_WIDTH = 80
+
+      # SGR escape sequences, stripped before handing text to tablo.
+      private STRIP_SGR_RE = /\e\[[0-9;]*m/
+
       # Tablo doesn't handle escaped text when calculating
       # column widths and wrapping text.
       private def self.strip_escaped_codes(text)
-        text.gsub(/\e\[[0-9;]*m/, "") if text
+        text.gsub(STRIP_SGR_RE, "") if text
       end
 
       def self.render(rows : Array(Array(String)),
@@ -59,14 +70,19 @@ module Termify
           # Pack to min size first so we can check the width
           table.pack(autosize: true)
           # If it's really wide and not indented, re-pack to terminal width
-          # Else if it's wider than 80, repack to 80
+          # Else if it's wider than the comfortable width, repack to that
           # Else OK
-          if table.total_table_width > 100 && indent == 0
-            Tablo::Config.terminal_capped_width = true
-            table.pack(autosize: true)
-            Tablo::Config.terminal_capped_width = false
-          elsif table.total_table_width > 80
-            table.pack(80, autosize: true)
+          if table.total_table_width > TERMINAL_PACK_WIDTH && indent == 0
+            begin
+              # Global config; restore it even if pack raises, or every later
+              # table in the process inherits the capped width.
+              Tablo::Config.terminal_capped_width = true
+              table.pack(autosize: true)
+            ensure
+              Tablo::Config.terminal_capped_width = false
+            end
+          elsif table.total_table_width > COMFORTABLE_WIDTH
+            table.pack(COMFORTABLE_WIDTH, autosize: true)
           end
           # Handle indent by prefixing each line of table render
           if indent > 0
