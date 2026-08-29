@@ -250,10 +250,13 @@ named ANSI colour, a 256-colour name, or a `#rrggbb` hex string.
 
 ---
 
-## 7. Inline scanning
+## 7. Inline rendering
 
-`render_inline` is a single left-to-right pass over the line's characters. There is
-no tokenizer and no tree; open spans live on an `inline_stack` of
+`InlineRenderer` owns everything below block level. It takes a `Stylesheet` at
+construction; `Renderer` holds one and delegates to it.
+
+`#render` is a single left-to-right pass over the line's characters. There is no
+tokenizer and no tree; open spans live on an `inline_stack` of
 `{InlineElement, String}` pairs.
 
 Because ANSI has no "un-bold" that composes cleanly, closing a span does not emit a
@@ -263,12 +266,95 @@ each time a span closes**. It is a stack of paint pots, not a stack of tags.
 
 Priority, highest first: `` `code` ``, `<html>`, `[text](url)`, `**bold**`,
 `~~strike~~`, `*italic*`, `_italic_`. Code spans do not nest. Link text re-enters
-`render_inline` with the link style as its block style. Underscores between
+`#render` with the link style as its block style. Underscores between
 alphanumerics are literal, so `snake_case` survives.
+
+`#render` does not emit the block style itself — callers write it before calling
+in, and `replay_sequence` re-emits it only at a span boundary. That convention is
+easy to trip over; see [Appendix B](#appendix-b--traps).
+
+### Styled runs
+
+Some callers need to measure or wrap text before it is styled, which escape
+sequences make impossible — they occupy no columns but plenty of bytes.
+`#runs` returns the same content as a sequence of `Run`s instead:
+
+```
+Run = {text : String, ansi : String}
+```
+
+`text` never contains an escape, so it can be measured, wrapped and sliced.
+`ansi` is the **full active sequence**, not a delta, so a run can be emitted on
+its own with no memory of what preceded it. `#plain` is the runs' text joined.
+
+Runs are derived by parsing `#render`'s output back apart, not by scanning the
+markup a second time. That is deliberate: a second scanner would need its own copy
+of the priority rules, the mid-word underscore exemption and the unclosed-delimiter
+fallbacks, and every future fix would have to be applied twice. Parsing mirrors
+`replay_sequence` exactly — `RESET` clears the active sequence, anything else
+layers onto it — so the two views cannot disagree about what the markup means.
 
 ---
 
-## 8. Code fences
+## 8. Tables
+
+Tables are the one place where layout and styling have to be separated, because
+the layout engine is tablo and tablo measures the strings it is given. An escape
+sequence would be counted as visible width, and every styled column would come out
+too narrow.
+
+The way through is that **tablo styles after it measures**. `Cell#render_subcell`
+computes alignment spacing from the wrapped text, then calls the styler on it. So
+tablo can be handed plain text for layout and asked to apply our ANSI at the end.
+
+```mermaid
+sequenceDiagram
+    participant R as Renderer
+    participant T as TableRenderer
+    participant I as InlineRenderer
+    participant TB as tablo
+
+    R->>T: render(raw Markdown rows, alignments, io, inline, style)
+    loop each body cell
+        T->>I: runs(cell, style)
+        I-->>T: [{text, ansi}, ...]
+        Note over T: store CellContent{plain, runs}<br/>keyed by {row, column}
+    end
+    T->>TB: build table with plain text + body_styler
+    TB->>TB: measure, pack, wrap
+    loop each wrapped line
+        TB->>T: styler(value, coords, text, line_index)
+        Note over T: locate text in cell.plain<br/>via per-cell cursor
+        T-->>TB: styled line
+    end
+    TB-->>T: rendered table
+    T->>R: write to io
+```
+
+Two consequences worth knowing:
+
+- **Cells are buffered as raw Markdown.** `buffer_table_row` stores the source
+  text; inline markup is resolved inside `TableRenderer`. Resolving it earlier
+  would only have to be undone.
+- **The cursor is positional, not semantic.** Tablo hands back a wrapped line but
+  not where it sits in the cell, so `restyle` keeps a per-cell offset, resets it
+  when `line_index` is 0, and locates each line from there. Wrapping is
+  sequential, which makes the search unambiguous even when a word repeats. A line
+  that cannot be placed is returned unstyled rather than styled in the wrong
+  place — which also covers the truncation indicator, since that arrives through
+  the same callback and is not cell text at all.
+
+Header cells have their markup resolved but are styled uniformly bold rather than
+per-run. See [Appendix A](#appendix-a--deliberately-unsupported).
+
+The behaviours this depends on are pinned by canary specs in
+`spec/termify/markdown/renderer/tablo_canary_spec.cr`. They do not test Termify —
+they fail when a tablo upgrade changes something underneath us, which is cheaper
+than discovering it through mangled output.
+
+---
+
+## 9. Code fences
 
 `CodeRenderer` is instantiated when a fence opens, fed one body line at a time, and
 closed at the terminating marker. `@fence_indent` is captured at open so indented
@@ -289,7 +375,7 @@ styled output emitted immediately.
 
 ---
 
-## 9. Terminal and ANSI
+## 10. Terminal and ANSI
 
 `ANSI` holds the sequences and the colour helpers. Its sub-modules — `Cursor`,
 `Screen`, `Clear`, `Mouse` — are **not** included into `ANSI`; callers use
@@ -315,6 +401,7 @@ Not supported                                                                   
 Lookahead-dependent Markdown (reference links, setext headings, lazy continuation)|The renderer is a one-pass pipe; buffering the document to support these would forfeit streaming, which is the point of the shard.                                                                 
 Loose-list blank lines                                                            |Blank lines between continuation blocks are swallowed. Preserving them needs a clear use case first; guessing produces worse spacing than dropping.                                                
 Column-width-aware table indentation                                              |Indentation is a per-line string prefix. Doing it properly requires tablo to expose width negotiation.                                                                                             
+Per-run styling of table header cells                                             |Headers have their markup resolved but are styled uniformly bold. Styling them per-run would mean relying on what `coords.row_index` means for a header row, which tablo does not document.        
 `block_prefix` / `block_suffix` style fields                                      |No concrete use case for non-newline block decoration has emerged. Revisit if one does.                                                                                                            
 Streaming highlight for `dot_all` lexers                                          |Tartrazine's JS lexer matches block comments with a single multi-line regex rather than push/pop state, so per-line resumption cannot work. Buffering is correct for all lexers and is the default.
 Platforms other than Linux, macOS and Windows                                     |`Terminal` needs platform termios or console APIs. Unsupported targets should fail at compile time.                                                                                                
@@ -361,6 +448,21 @@ Crystal. Use `buf` for a `String::Builder`.
 **Symptom: a fence inside a list item never closes.** `@fence_indent` was set from
 an already-lstripped continuation line. It must be patched with the real indent
 after `dispatch_continuation`.
+
+**Symptom: the first styled span in a line loses the block style, but later ones
+keep it.** `InlineRenderer#render` does not emit the block style — the caller does,
+before calling in — and `replay_sequence` only re-emits it once a span closes.
+Anything consuming the rendered output directly, `#runs` included, has to seed the
+block style itself.
+
+**Symptom: table columns come out too narrow, or wrap where they should not.**
+Something styled reached tablo before it measured. Tablo counts escape bytes as
+visible width; cells must be handed plain text and styled in the styler callback.
+
+**Symptom: table styling disappears when output is piped.** Tablo suppresses
+stylers unless `STDOUT` is a tty. `TableRenderer` sets `Tablo::Config.styler_tty_only`
+to false around its render, because the caller supplies the IO and so the caller,
+not tablo, decides where output is going.
 
 **Symptom: background colour codes look wrong by ten.** `Colorize::ColorANSI` enum
 values *are* the ANSI foreground codes; background is foreground plus ten.
