@@ -77,7 +77,7 @@ module Termify
           else
             io << table
           end
-        rescue ex
+        rescue
           # Tablo failed. Render table raw
           render_raw_table(rows, io, indent)
         end

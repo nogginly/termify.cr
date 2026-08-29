@@ -44,15 +44,23 @@ module Termify
       private INLINE_HTML     = /<\/?[a-zA-Z][^>]*>/
       private BLOCK_HTML      = /^\s*<[^>]+>\s*$/
 
-      # Two kinds of table row syntax
+      # A candidate table row -- any line carrying at least one pipe. Two kinds
+      # of row syntax are accepted:
       #     | value | value ... |
       #       value | value | ...
-      private TABLE_ROW = /^(\|.*\|)|(.*(\|.*)+)$/
+      # This test is deliberately lax. A candidate is not treated as a table
+      # until the following line is confirmed to be a delimiter row, so prose
+      # containing a pipe (e.g. "if x || y") is released as a paragraph.
+      private TABLE_ROW = /\|/
 
-      # Two kinds of table row separator syntax
-      #     | ----- | -----| ... |
-      #       ----- | ---- | ...
-      private TABLE_SEPARATOR = /^(\|[\s|:-]+\|)|([\s|:-]+(\|[\s|:-]+)+)$/
+      # A table delimiter row: pipe-separated cells of dashes with optional
+      # alignment colons and nothing else. Anchored at both ends so prose
+      # cannot match.
+      #     | ----- | -----: | ... |
+      #       ----- | :----: | ...
+      # A bare "---" matches this shape but is a horizontal rule, so callers
+      # must use `table_separator?`, which also requires a pipe.
+      private TABLE_SEPARATOR = /\A\s*\|?\s*:?-+:?\s*(?:\|\s*:?-+:?\s*)*\|?\s*\z/
 
       getter stylesheet : Stylesheet
       getter io : IO
@@ -78,6 +86,11 @@ module Termify
         @fence_indent = 0
         @table_rows = [] of Array(String)
         @table_col_alignments = [] of TableRenderer::ColumnAlignment
+
+        # A row that looks like a table header, held back for one line while
+        # we wait to see whether a delimiter row follows. See
+        # `#resolve_table_candidate`.
+        @table_candidate = nil.as(String?)
         @code_renderer = nil.as(CodeRenderer?)
         @quote_renderer = nil.as(Renderer?)
         @list_stack = [] of NamedTuple(indent: Int32, ordered: Bool, counter: Int32, content_indent: Int32)
@@ -118,6 +131,7 @@ module Termify
         @buf = String::Builder.new
         process_line(remainder) unless remainder.empty?
         close_quote_renderer
+        release_table_candidate
         flush_table if @block_mode.table?
         close_block(nil)
       end
@@ -140,6 +154,9 @@ module Termify
       # Dispatches one logical line to the appropriate block handler.
       private def process_line(line : String) : Nil
         return if process_fence_line(line)
+        # A held candidate must be resolved before any other handler sees the
+        # line, since only the immediately following line can confirm it.
+        return if @table_candidate && resolve_table_candidate(line)
         unless @list_stack.empty?
           return if handle_list_line(line)
         end
@@ -174,19 +191,69 @@ module Termify
       # true if the line was consumed, false to fall through to dispatch_block.
       private def process_table_line(line : String) : Bool
         if @block_mode.table?
-          if TABLE_ROW.matches?(line)
+          if table_row?(line)
             buffer_table_row(line, @stylesheet[BlockElement::Table])
             return true
           else
             flush_table
             return false
           end
-        elsif TABLE_ROW.matches?(line)
-          @block_mode = BlockMode::Table
-          buffer_table_row(line, @stylesheet[BlockElement::Table])
+        elsif table_row?(line)
+          # Hold the row back rather than committing to a table. Only a
+          # delimiter row on the next line confirms it.
+          @table_candidate = line
           return true
         end
         false
+      end
+
+      # True if *line* could be a table row -- it carries at least one pipe.
+      private def table_row?(line : String) : Bool
+        TABLE_ROW.matches?(line)
+      end
+
+      # True if *line* is a table delimiter row. Requires a pipe as well as
+      # the dashes-and-colons shape, so a bare "---" stays a horizontal rule.
+      private def table_separator?(line : String) : Bool
+        line.includes?('|') && TABLE_SEPARATOR.matches?(line)
+      end
+
+      # Decides the fate of the held candidate row now that the next line is
+      # known. Returns true if *line* was consumed.
+      #
+      #   delimiter row  -> promote both to a table, consume the line
+      #   anything else  -> release the candidate as a normal block; the line
+      #                     itself becomes a fresh candidate if it too carries
+      #                     a pipe, otherwise it falls through for dispatch
+      private def resolve_table_candidate(line : String) : Bool
+        candidate = @table_candidate
+        return false if candidate.nil?
+        @table_candidate = nil
+
+        if table_separator?(line)
+          @block_mode = BlockMode::Table
+          style = @stylesheet[BlockElement::Table]
+          buffer_table_row(candidate, style)
+          buffer_table_row(line, style)
+          return true
+        end
+
+        dispatch_block(candidate)
+        if table_row?(line)
+          @table_candidate = line
+          true
+        else
+          false
+        end
+      end
+
+      # Emits a held candidate as a normal block. Called when the input ends
+      # before a delimiter row could confirm it.
+      private def release_table_candidate : Nil
+        if candidate = @table_candidate
+          @table_candidate = nil
+          dispatch_block(candidate)
+        end
       end
 
       # Parses and buffers one table row; silently drops separator rows.
@@ -198,7 +265,7 @@ module Termify
         line = line[0..-2] if line.ends_with?('|')
         cells = line.split("|").map(&.strip)
 
-        if TABLE_SEPARATOR.matches?(original_line)
+        if table_separator?(original_line)
           @table_col_alignments = cells.map do |cell|
             case cell
             when .ends_with?(':') then TableRenderer::ColumnAlignment::Right

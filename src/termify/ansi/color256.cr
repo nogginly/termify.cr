@@ -131,7 +131,7 @@ module Termify
       MediumVioletRed
       Magenta3
       DarkViolet_2
-      Purple_3
+      Purple3_2
       DarkOrange3
       IndianRed
       HotPink3
@@ -208,7 +208,7 @@ module Termify
       IndianRed1
       IndianRed1_2
       HotPink
-      HotPink_2
+      HotPink_4
       MediumOrchid1_2
       DarkOrange
       Salmon1

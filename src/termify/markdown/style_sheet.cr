@@ -88,7 +88,6 @@ module Termify
         gutter_style = case gs
                        when InlineStyle then gs
                        when NamedTuple  then inline_style_from(gs)
-                       else                  nil
                        end
         CodeBlockStyle.new(
           bold: opts["bold"]? || false,
@@ -126,7 +125,7 @@ module Termify
       private HEX_COLOR_RE = /\A#([0-9a-fA-F]{6})\z/
 
       # Convert color value from symbol/string
-      private def color_from(value : Symbol | String | ANSI::Color | Nil)
+      private def color_from(value : Symbol | String | ANSI::Color?)
         case value
         when Symbol, String
           case value.to_s

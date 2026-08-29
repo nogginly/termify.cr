@@ -28,6 +28,28 @@ The shard has two halves that share nothing but the `ANSI` module:
 - `Termify::ANSI` and `Termify::Terminal` -- terminal control primitives, usable
   on their own without touching Markdown at all.
 
+### Where streaming yields
+
+"Line by line" is the rule, not an absolute. Three constructs cannot be resolved
+from a single line, and each buys back exactly as much lookahead as it needs and
+no more. The typesetter, in other words, is allowed to hold a line face-down on
+the desk — but only for as long as it takes to settle a specific question.
+
+Construct                      |Held back           |Until                |Because                                                                                                                                                                             
+-------------------------------|--------------------|---------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Table detection                |One line            |The next line arrives|`a \| b` is a table row or a sentence depending entirely on whether a delimiter row follows. Nothing in the line itself can tell them apart.                                        
+Code fence, highlighter enabled|The whole fence body|The closing marker   |Tartrazine lexers resolve multi-line constructs (block comments, template literals) across the whole block. Some use a single `dot_all` regex and cannot be resumed per line at all.
+Table rendering                |All rows            |The table ends       |Column widths are a function of every cell, so tablo cannot lay out row one until it has seen row *n*.                                                                              
+
+Everything else — headings, paragraphs, lists, blockquotes, rules, and fences with
+no highlighter — emits as soon as the line is complete.
+
+Two properties keep this honest. **The bound is always explicit**: one line, one
+fence, one table, never "until convenient". And **each exception degrades to
+streaming** when its reason does not apply — a fence with no `highlight_theme`
+emits immediately, and a candidate row with no delimiter behind it is released as
+a paragraph on the very next line.
+
 ---
 
 ## 2. Rendering pipeline
@@ -46,10 +68,14 @@ flowchart TD
 
     E --> G{{"dispatch chain<br/>first handler to consume wins"}}
     G -->|code fence open| H["process_fence_line"]
+    G -->|candidate row held| S["resolve_table_candidate"]
     G -->|list active| I["handle_list_line"]
     G -->|line starts with &gt;| J["process_quote_line"]
-    G -->|row contains pipes| K["process_table_line"]
+    G -->|line has a pipe| K["process_table_line<br/>hold as candidate"]
     G -->|otherwise| L["dispatch_block"]
+
+    S -->|delimiter follows| O
+    S -->|otherwise| L
 
     H --> M["CodeRenderer"]
     I --> L
@@ -72,6 +98,10 @@ Two properties of this chain matter:
   precedence table anywhere else; `process_line` *is* the precedence table.
 - **Every handler returns `Bool`** -- true means consumed, false means fall
   through. `dispatch_block` is the terminal case and always consumes.
+- **A held table candidate is resolved before anything else** can see the line,
+  second only to the fence check. Only the immediately following line can confirm
+  or release it, so any handler that consumed that line first -- a blockquote, say
+  -- would strand the candidate indefinitely.
 
 `dispatch_continuation` is the same chain minus the list check, used for indented
 blocks inside a list item so a nested fence or table is not mistaken for a new item.

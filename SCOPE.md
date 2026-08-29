@@ -23,6 +23,39 @@ containing a pipe enters `BlockMode::Table` -- including `if x || y` and, becaus
 Anchor both branches, and consider letting heading and fence detection win over
 table detection.
 
+**Table output depends on whether STDOUT is a TTY.** `TableRenderer` styles
+borders and the header row through `Colorize`, whose `enabled` flag defaults to
+`STDOUT.tty? && STDERR.tty?`. Everything else in the shard emits ANSI
+unconditionally via the `ANSI` module. Rendering the same Markdown into an
+`IO::Memory` therefore yields different bytes interactively than in a pipe, which
+is wrong for a library that hands output to a caller-supplied IO -- the caller
+decides where it goes, and may know better than `STDOUT` does. It also makes specs
+pass locally and fail in CI. Route table styling through `ANSI` and let the
+stylesheet own the decision.
+
+**Inline styling is discarded in table cells.** `buffer_table_row` runs
+`render_inline` over every cell, then `TableRenderer` strips all escape sequences
+back out via `strip_escaped_codes` before handing text to tablo, which counts
+escape bytes as visible width. Bold, colour and links are therefore lost in tables,
+and the work of rendering them is wasted. The behaviour is also inconsistent: the
+`render_raw_table` fallback keeps the escapes, so styling appears only when tablo
+fails. A fix needs tablo to size columns on a display width supplied by the caller,
+or the styling to be re-applied to cell text after layout.
+
+**A blockquote after a table swallows the table.** In `process_line`,
+`process_quote_line` runs before `process_table_line`. When a confirmed table is
+open and the next line starts with `>`, the quote handler consumes it and
+`flush_table` never runs, so the buffered rows are dropped. Same root cause as the
+stranded-candidate problem -- a later handler consuming a line that an earlier
+state machine still needed. Either flush the table before quote routing, or hoist
+the open-table check the way `resolve_table_candidate` was hoisted.
+
+**Table detection is confused by escaped and inline-code pipes.** `table_row?`
+counts any pipe, so `` `a | b` `` in prose and `a \| b` both raise a candidate.
+Harmless today -- the candidate is released as a paragraph unless a delimiter row
+happens to follow -- but the same blindness would produce wrong cell splits in
+`buffer_table_row` for a real table containing either.
+
 **`Terminal#cursor_row` can hang forever.** The read loop breaks on `'R'`, but
 `STDIN.read_char` returns `nil` at EOF, which never equals `'R'`. Any non-TTY stdin
 -- CI, a pipe, a redirect -- spins the loop indefinitely. Break on `nil`, and
