@@ -160,6 +160,10 @@ module Termify
         unless @list_stack.empty?
           return if handle_list_line(line)
         end
+        # An open table must also see the line before quote routing. Only the
+        # row check can consume it; anything else flushes the table and falls
+        # through, so a quote following a table is still routed correctly.
+        return if @block_mode.table? && process_table_line(line)
         return if process_quote_line(line)
         return if process_table_line(line)
         dispatch_block(line)
@@ -433,8 +437,10 @@ module Termify
         io << ansi << list_indent << prefix << render_inline(text, style) << erase << reset << style.line_suffix
         io << '\n' unless chomp
 
-        # sometimes we write an empty line, so remember that
-        @current_line_empty = text.empty?
+        # sometimes we write an empty line, so remember that -- but only when
+        # writing to our own IO. Table cells render into a String::Builder and
+        # must not disturb the parent's blank line accounting.
+        @current_line_empty = text.empty? if io.same?(@io)
       end
 
       # Emits *text* verbatim -- no inline parsing. Used for block HTML.

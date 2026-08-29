@@ -15,14 +15,6 @@ as deliberately unsupported, or nowhere at all.
 
 ## Must fix
 
-**Table detection matches ordinary prose.** `TABLE_ROW` is
-`/^(\|.*\|)|(.*(\|.*)+)$/`; alternation binds looser than the anchors, so the
-second branch has no start anchor and the first has no end anchor. Any line
-containing a pipe enters `BlockMode::Table` -- including `if x || y` and, because
-`process_table_line` runs before `dispatch_block`, headings such as `# Title | Sub`.
-Anchor both branches, and consider letting heading and fence detection win over
-table detection.
-
 **Table output depends on whether STDOUT is a TTY.** `TableRenderer` styles
 borders and the header row through `Colorize`, whose `enabled` flag defaults to
 `STDOUT.tty? && STDERR.tty?`. Everything else in the shard emits ANSI
@@ -42,14 +34,6 @@ and the work of rendering them is wasted. The behaviour is also inconsistent: th
 fails. A fix needs tablo to size columns on a display width supplied by the caller,
 or the styling to be re-applied to cell text after layout.
 
-**A blockquote after a table swallows the table.** In `process_line`,
-`process_quote_line` runs before `process_table_line`. When a confirmed table is
-open and the next line starts with `>`, the quote handler consumes it and
-`flush_table` never runs, so the buffered rows are dropped. Same root cause as the
-stranded-candidate problem -- a later handler consuming a line that an earlier
-state machine still needed. Either flush the table before quote routing, or hoist
-the open-table check the way `resolve_table_candidate` was hoisted.
-
 **Table detection is confused by escaped and inline-code pipes.** `table_row?`
 counts any pipe, so `` `a | b` `` in prose and `a \| b` both raise a candidate.
 Harmless today -- the candidate is released as a paragraph unless a delimiter row
@@ -64,17 +48,6 @@ bound the read.
 **Unsupported-platform guard is runtime code.** `terminal.cr` ends with a bare
 `raise` inside a `{% else %}` branch, so an unsupported target compiles and fails
 at program start instead of at build time. Use `{% raise %}`.
-
-**`emit_styled` mutates renderer state when writing to a foreign IO.**
-`buffer_table_row` passes a `String::Builder`. The `open_block` call is guarded by
-`io.same?(@io)` but the trailing `@current_line_empty = text.empty?` is not, so
-rendering a table cell rewrites the parent's blank-line accounting. Extend the
-guard to cover both.
-
-**`TableRenderer` leaks global state on failure.** `Tablo::Config.terminal_capped_width`
-is set true, used, then set false with no `ensure`; if `pack` raises, the flag stays
-on for the life of the process. The surrounding `rescue ex` also swallows the
-exception silently with `ex` unused.
 
 **Pending blank line bypasses block accounting.** `handle_list_line` writes
 `@io << '\n'` directly on list exit without updating `@current_line_empty`, so the
@@ -108,10 +81,6 @@ via `CodeBlockStyle.new.merge(s)` instead.
 **Remove or adopt dead ANSI helpers.** `ANSI.sequence` and `ANSI.reset_and_replay`
 have no callers; `Renderer#replay_sequence` does the job. Delete them, or route the
 renderer through them.
-
-**Move the `TableRenderer` regex to a named constant.** `strip_escaped_codes` holds
-an inline regex, against the project rule that all regexes live in private named
-constants. The 80 and 100 column thresholds nearby should be named too.
 
 **Recover five missing stylesheet specs.** The suite went from 246 examples to 241
 across the spec split; a `str_replace` likely clobbered content in
