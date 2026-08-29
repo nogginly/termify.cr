@@ -21,6 +21,10 @@ module Termify
         end
       end
 
+      # Border colour. Hard-coded for now; becomes a Table style property
+      # when the style system is refactored.
+      private BORDER_ANSI = ANSI.fg(Colorize::ColorANSI::DarkGray)
+
       # Above this width an unindented table is re-packed to the terminal
       # width rather than left to overflow.
       private TERMINAL_PACK_WIDTH = 100
@@ -49,14 +53,20 @@ module Termify
         # Hard-coding border color; make this configurable for Table style
         # when we get the style system refactored
         border = Tablo::Border.new(:fancy,
-          styler: ->(border_chars : String) { border_chars.colorize(:dark_gray).to_s })
+          styler: ->(border_chars : String) { "#{BORDER_ANSI}#{border_chars}#{ANSI::RESET}" })
 
+        # Tablo suppresses stylers unless STDOUT is a tty. We write to a
+        # caller-supplied IO, so that decision is not tablo's to make -- the
+        # caller chose the destination. Restore the flag afterwards so we do
+        # not change behaviour for a host application also using tablo.
+        was_tty_only = Tablo::Config.styler_tty_only?
+        Tablo::Config.styler_tty_only = false
         begin
           # Safely try and render table
           # Tablo doesn't work with escape codes; so we strip it out.
           table = Tablo::Table.new(rows[1..-1], border: border,
             row_divider_frequency: 1,
-            header_styler: ->(content : String) { content.colorize.bold.to_s })
+            header_styler: ->(content : String) { "#{ANSI::BOLD}#{content}#{ANSI::RESET}" })
 
           max_cols.times do |i|
             align = convert(alignments[i]?)
@@ -96,6 +106,8 @@ module Termify
         rescue
           # Tablo failed. Render table raw
           render_raw_table(rows, io, indent)
+        ensure
+          Tablo::Config.styler_tty_only = was_tty_only
         end
         io.puts
       end

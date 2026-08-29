@@ -34,25 +34,27 @@ Spectator.describe Termify::Markdown::Renderer do
     # as visible width. The markup is still consumed, so the delimiters do not
     # leak into the output. See SCOPE.md.
     #
-    # Colorize is pinned off for this example. TableRenderer bolds the header
-    # row via Colorize, which is TTY-conditional, so an unpinned run emits bold
-    # interactively and not in CI -- and would pass for the wrong reason.
+    # Asserted against the body line alone. Table borders and header cells are
+    # styled unconditionally via ANSI, so the surrounding output legitimately
+    # carries escapes.
     it "consumes inline markup inside a cell without styling it" do
-      was_enabled = Colorize.enabled?
-      Colorize.enabled = false
-      begin
-        output = render_block("Header | Other\n-------|------\n**bold cell** | plain\n")
-        expect(output).to contain("bold cell")
-        expect(output).not_to contain("**")
-        expect(output).not_to contain(ANSI::BOLD)
-      ensure
-        Colorize.enabled = was_enabled
-      end
+      output = render_block("Header | Other\n-------|------\n**bold cell** | plain\n")
+      body = output.lines.select(&.includes?("bold cell")).join
+      expect(body).not_to be_empty
+      expect(body).not_to contain("**")
+      expect(body).not_to contain(ANSI::BOLD)
     end
 
     it "terminates on a non-table line and renders what follows normally" do
       output = render_block("A | B\n--|--\n1 | 2\n\nfollowing paragraph\n")
       expect(output).to contain("following paragraph")
+    end
+
+    it "styles borders and headers regardless of tty" do
+      # Specs run with stdout piped. Table styling must not depend on that.
+      output = render_block("Header | Other\n-------|------\n1 | 2\n")
+      expect(output).to contain(ANSI::BOLD)
+      expect(output).to contain(ANSI::RESET)
     end
 
     it "flushes the table when a blockquote follows immediately" do
