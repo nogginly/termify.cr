@@ -37,12 +37,42 @@ Spectator.describe Termify::Markdown::Renderer do
     # Asserted against the body line alone. Table borders and header cells are
     # styled unconditionally via ANSI, so the surrounding output legitimately
     # carries escapes.
-    it "consumes inline markup inside a cell without styling it" do
+    it "styles inline markup inside a cell" do
       output = render_block("Header | Other\n-------|------\n**bold cell** | plain\n")
       body = output.lines.select(&.includes?("bold cell")).join
       expect(body).not_to be_empty
       expect(body).not_to contain("**")
-      expect(body).not_to contain(ANSI::BOLD)
+      expect(body).to contain(ANSI::BOLD)
+    end
+
+    it "styles only the marked span, not the whole cell" do
+      output = render_block("H | H2\n--|--\nkeep **bold** here | x\n")
+      body = output.lines.select(&.includes?("bold")).join
+      # The bold sequence must sit immediately before the styled word, so an
+      # off-by-one in the wrapped-line cursor shows up here.
+      expect(body).to contain("#{ANSI::BOLD}bold")
+      expect(body).not_to contain("#{ANSI::BOLD}keep")
+    end
+
+    it "resolves inline markup in a header cell" do
+      output = render_block("**Head** | Other\n--------|------\n1 | 2\n")
+      expect(output).not_to contain("**")
+      expect(output).to contain("Head")
+    end
+
+    it "consumes code spans and links in cells" do
+      output = render_block("A | B\n--|--\n`code` | [text](https://example.com)\n")
+      expect(output).to contain("code")
+      expect(output).to contain("text")
+      expect(output).not_to contain("example.com")
+      expect(output).not_to contain("`")
+    end
+
+    it "styles a span that survives wrapping in a narrow column" do
+      wide = (["word"] * 40).join(" ")
+      output = render_block("A | B\n--|--\n**#{wide}** | x\n")
+      expect(output).to contain(ANSI::BOLD)
+      expect(output).not_to contain("**")
     end
 
     it "terminates on a non-table line and renders what follows normally" do

@@ -197,7 +197,7 @@ module Termify
       private def process_table_line(line : String) : Bool
         if @block_mode.table?
           if table_row?(line)
-            buffer_table_row(line, @stylesheet[BlockElement::Table])
+            buffer_table_row(line)
             return true
           else
             flush_table
@@ -237,9 +237,8 @@ module Termify
 
         if table_separator?(line)
           @block_mode = BlockMode::Table
-          style = @stylesheet[BlockElement::Table]
-          buffer_table_row(candidate, style)
-          buffer_table_row(line, style)
+          buffer_table_row(candidate)
+          buffer_table_row(line)
           return true
         end
 
@@ -262,7 +261,7 @@ module Termify
       end
 
       # Parses and buffers one table row; silently drops separator rows.
-      private def buffer_table_row(line : String, style : Style) : Nil
+      private def buffer_table_row(line : String) : Nil
         original_line = line
 
         # trim first/last column separator
@@ -279,11 +278,9 @@ module Termify
             end
           end
         else
-          cells = cells.map do |cell|
-            String.build do |io|
-              emit_styled(BlockElement::Table, @inline.render(cell, style), io, chomp: true)
-            end
-          end
+          # Raw cell text. Inline markup is resolved by TableRenderer, which
+          # needs unstyled text to lay out on and applies styling after
+          # wrapping. Rendering it here would only have to be undone.
           @table_rows << cells
         end
       end
@@ -298,7 +295,8 @@ module Termify
         close_block(nil)
         unless @table_rows.empty?
           indent = @list_stack.empty? ? 0 : @list_stack.last[:content_indent]
-          TableRenderer.render(@table_rows, @table_col_alignments, @io, indent)
+          TableRenderer.render(@table_rows, @table_col_alignments, @io,
+            @inline, @stylesheet[BlockElement::Table], indent)
           @current_line_empty = false
         end
         @table_rows.clear
