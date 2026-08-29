@@ -4,6 +4,8 @@ license: MPL-2.0
 authors:
   - nogginly <nogginly@icloud.com>
 
+crystal: ">= 1.19, < 2.0"
+
 development_dependencies:
   ameba:
     github: crystal-ameba/ameba
