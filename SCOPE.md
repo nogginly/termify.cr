@@ -15,12 +15,6 @@ as deliberately unsupported, or nowhere at all.
 
 ## Must fix
 
-**Table detection is confused by escaped and inline-code pipes.** `table_row?`
-counts any pipe, so `` `a | b` `` in prose and `a \| b` both raise a candidate.
-Harmless today -- the candidate is released as a paragraph unless a delimiter row
-happens to follow -- but the same blindness would produce wrong cell splits in
-`buffer_table_row` for a real table containing either.
-
 **`Terminal#cursor_row` can hang forever.** The read loop breaks on `'R'`, but
 `STDIN.read_char` returns `nil` at EOF, which never equals `'R'`. Any non-TTY stdin
 -- CI, a pipe, a redirect -- spins the loop indefinitely. Break on `nil`, and

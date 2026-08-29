@@ -212,9 +212,13 @@ module Termify
         false
       end
 
-      # True if *line* could be a table row -- it carries at least one pipe.
+      # True if *line* could be a table row -- it carries at least one pipe
+      # acting as a delimiter. Pipes inside a code span or escaped as "\|" are
+      # content, so they do not raise a candidate. Uses the same rules as
+      # `#split_cells`, so detection and splitting cannot disagree.
       private def table_row?(line : String) : Bool
-        TABLE_ROW.matches?(line)
+        return false unless TABLE_ROW.matches?(line)
+        split_cells(line).size > 1
       end
 
       # True if *line* is a table delimiter row. Requires a pipe as well as
@@ -261,15 +265,53 @@ module Termify
       end
 
       # Parses and buffers one table row; silently drops separator rows.
+      # Splits a table row into cells on pipes that act as delimiters. A pipe
+      # inside a code span, or escaped as "\|", is cell content rather than a
+      # separator; the escape is consumed so the cell holds a literal pipe.
+      #
+      # Backticks only protect a pipe when they pair up. An odd count means an
+      # unmatched backtick, which Markdown treats as a literal, so protection
+      # is skipped rather than swallowing the rest of the row into one cell.
+      private def split_cells(line : String) : Array(String)
+        protect_code = line.count('`').even?
+        cells = [] of String
+        cell = String::Builder.new
+        in_code = false
+        chars = line.chars
+        i = 0
+        while i < chars.size
+          ch = chars[i]
+          if ch == '\\' && chars[i + 1]? == '|'
+            cell << '|'
+            i += 2
+            next
+          end
+          in_code = !in_code if ch == '`' && protect_code
+          if ch == '|' && !in_code
+            cells << cell.to_s
+            cell = String::Builder.new
+          else
+            cell << ch
+          end
+          i += 1
+        end
+        cells << cell.to_s
+        cells
+      end
+
+      # Drops the empty cells produced by leading and trailing separators.
+      private def trim_edge_cells(cells : Array(String), line : String) : Array(String)
+        cells = cells[1..] if cells.size > 1 && line.starts_with?('|')
+        if cells.size > 1 && line.ends_with?('|') && !line.ends_with?("\\|")
+          cells = cells[0..-2]
+        end
+        cells
+      end
+
       private def buffer_table_row(line : String) : Nil
-        original_line = line
+        cells = trim_edge_cells(split_cells(line), line).map(&.strip)
 
-        # trim first/last column separator
-        line = line[1..-1] if line.starts_with?('|')
-        line = line[0..-2] if line.ends_with?('|')
-        cells = line.split("|").map(&.strip)
-
-        if table_separator?(original_line)
+        if table_separator?(line)
           @table_col_alignments = cells.map do |cell|
             case cell
             when .ends_with?(':') then TableRenderer::ColumnAlignment::Right

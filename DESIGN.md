@@ -333,6 +333,12 @@ sequenceDiagram
 
 Two consequences worth knowing:
 
+- **Delimiters are decided by a scan, not a split.** `split_cells` treats a pipe
+  as a separator only when it is neither escaped as `\|` nor inside a code span,
+  and `table_row?` uses the same routine so detection and splitting cannot
+  disagree. Backticks protect a pipe only when they pair up; an odd count means
+  an unmatched backtick, which Markdown reads as a literal, so protection is
+  skipped rather than swallowing the rest of the row.
 - **Cells are buffered as raw Markdown.** `buffer_table_row` stores the source
   text; inline markup is resolved inside `TableRenderer`. Resolving it earlier
   would only have to be undone.

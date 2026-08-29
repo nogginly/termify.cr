@@ -176,6 +176,37 @@ Spectator.describe Termify::Markdown::Renderer do
       expect(output).to contain("paragraph")
     end
 
+    it "does not split a cell on a pipe inside a code span" do
+      output = render_block("A | B\n--|--\n`a \\| b` | second\n")
+      expect(output).to contain("second")
+      expect(output).to contain("a | b")
+    end
+
+    it "keeps an escaped pipe as cell content" do
+      output = render_block("A | B\n--|--\nleft \\| still left | right\n")
+      expect(output).to contain("left | still left")
+      expect(output).to contain("right")
+    end
+
+    it "does not raise a table candidate for a pipe inside a code span" do
+      output = render_block("Use `a | b` in prose.\n\nnext\n")
+      expect(output).to contain("a | b")
+      expect(output).to contain("next")
+    end
+
+    it "does not raise a table candidate for an escaped pipe" do
+      output = render_block("An escaped \\| pipe.\n\nnext\n")
+      expect(output).to contain("| pipe")
+      expect(output).to contain("next")
+    end
+
+    it "still splits when a backtick is unmatched" do
+      # An odd backtick count means no code span, so pipes stay delimiters.
+      output = render_block("A | B\n--|--\n1 ` odd | 2\n")
+      expect(output).to contain("1")
+      expect(output).to contain("2")
+    end
+
     it "doesn't fail when more data columns than headers" do
       input = "|Heading1|\n|-------:|---|\n|    row1|  Lorem ipsum dolor sit amet|"
       expect { render_block(input) }.not_to raise_error(IndexError)
