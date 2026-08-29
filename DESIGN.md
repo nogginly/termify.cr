@@ -465,10 +465,23 @@ block style itself.
 Something styled reached tablo before it measured. Tablo counts escape bytes as
 visible width; cells must be handed plain text and styled in the styler callback.
 
-**Symptom: table styling disappears when output is piped.** Tablo suppresses
-stylers unless `STDOUT` is a tty. `TableRenderer` sets `Tablo::Config.styler_tty_only`
-to false around its render, because the caller supplies the IO and so the caller,
-not tablo, decides where output is going.
+**Symptom: table styling disappears when output is piped — or a spec passes on a
+laptop and fails in CI.** Tablo suppresses stylers unless `STDOUT` is a tty.
+`TableRenderer` sets `Tablo::Config.styler_tty_only` to false around its render,
+because the caller supplies the IO and so the caller, not tablo, decides where
+output is going.
+
+This gate has bitten in specs more often than in the library, because it fails
+towards silence rather than error. It has produced three distinct symptoms:
+styling absent when piped; a spec asserting bold that passed only because a
+*header* styler supplied it under a tty; and a canary that collected styler
+callbacks into an array, then asserted the array was well-ordered — which an
+empty array satisfies, so it passed in CI while observing nothing.
+
+Two rules follow. Any spec that observes a tablo styler must disable the gate
+explicitly (`with_tablo_styling` in the canary specs). And any assertion of the
+form "the collected data is well-formed" needs a companion assertion that data was
+collected at all.
 
 **Symptom: background colour codes look wrong by ten.** `Colorize::ColorANSI` enum
 values *are* the ANSI foreground codes; background is foreground plus ten.
