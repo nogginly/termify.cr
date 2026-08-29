@@ -34,25 +34,57 @@ Spectator.describe Termify::Markdown::Renderer do
     # as visible width. The markup is still consumed, so the delimiters do not
     # leak into the output. See SCOPE.md.
     #
-    # Colorize is pinned off for this example. TableRenderer bolds the header
-    # row via Colorize, which is TTY-conditional, so an unpinned run emits bold
-    # interactively and not in CI -- and would pass for the wrong reason.
-    it "consumes inline markup inside a cell without styling it" do
-      was_enabled = Colorize.enabled?
-      Colorize.enabled = false
-      begin
-        output = render_block("Header | Other\n-------|------\n**bold cell** | plain\n")
-        expect(output).to contain("bold cell")
-        expect(output).not_to contain("**")
-        expect(output).not_to contain(ANSI::BOLD)
-      ensure
-        Colorize.enabled = was_enabled
-      end
+    # Asserted against the body line alone. Table borders and header cells are
+    # styled unconditionally via ANSI, so the surrounding output legitimately
+    # carries escapes.
+    it "styles inline markup inside a cell" do
+      output = render_block("Header | Other\n-------|------\n**bold cell** | plain\n")
+      body = output.lines.select(&.includes?("bold cell")).join
+      expect(body).not_to be_empty
+      expect(body).not_to contain("**")
+      expect(body).to contain(ANSI::BOLD)
+    end
+
+    it "styles only the marked span, not the whole cell" do
+      output = render_block("H | H2\n--|--\nkeep **bold** here | x\n")
+      body = output.lines.select(&.includes?("bold")).join
+      # The bold sequence must sit immediately before the styled word, so an
+      # off-by-one in the wrapped-line cursor shows up here.
+      expect(body).to contain("#{ANSI::BOLD}bold")
+      expect(body).not_to contain("#{ANSI::BOLD}keep")
+    end
+
+    it "resolves inline markup in a header cell" do
+      output = render_block("**Head** | Other\n--------|------\n1 | 2\n")
+      expect(output).not_to contain("**")
+      expect(output).to contain("Head")
+    end
+
+    it "consumes code spans and links in cells" do
+      output = render_block("A | B\n--|--\n`code` | [text](https://example.com)\n")
+      expect(output).to contain("code")
+      expect(output).to contain("text")
+      expect(output).not_to contain("example.com")
+      expect(output).not_to contain("`")
+    end
+
+    it "styles a span that survives wrapping in a narrow column" do
+      wide = (["word"] * 40).join(" ")
+      output = render_block("A | B\n--|--\n**#{wide}** | x\n")
+      expect(output).to contain(ANSI::BOLD)
+      expect(output).not_to contain("**")
     end
 
     it "terminates on a non-table line and renders what follows normally" do
       output = render_block("A | B\n--|--\n1 | 2\n\nfollowing paragraph\n")
       expect(output).to contain("following paragraph")
+    end
+
+    it "styles borders and headers regardless of tty" do
+      # Specs run with stdout piped. Table styling must not depend on that.
+      output = render_block("Header | Other\n-------|------\n1 | 2\n")
+      expect(output).to contain(ANSI::BOLD)
+      expect(output).to contain(ANSI::RESET)
     end
 
     it "flushes the table when a blockquote follows immediately" do
@@ -142,6 +174,37 @@ Spectator.describe Termify::Markdown::Renderer do
       output = render_block("a | b\n\nparagraph\n")
       expect(output).to contain("a | b")
       expect(output).to contain("paragraph")
+    end
+
+    it "does not split a cell on a pipe inside a code span" do
+      output = render_block("A | B\n--|--\n`a \\| b` | second\n")
+      expect(output).to contain("second")
+      expect(output).to contain("a | b")
+    end
+
+    it "keeps an escaped pipe as cell content" do
+      output = render_block("A | B\n--|--\nleft \\| still left | right\n")
+      expect(output).to contain("left | still left")
+      expect(output).to contain("right")
+    end
+
+    it "does not raise a table candidate for a pipe inside a code span" do
+      output = render_block("Use `a | b` in prose.\n\nnext\n")
+      expect(output).to contain("a | b")
+      expect(output).to contain("next")
+    end
+
+    it "does not raise a table candidate for an escaped pipe" do
+      output = render_block("An escaped \\| pipe.\n\nnext\n")
+      expect(output).to contain("| pipe")
+      expect(output).to contain("next")
+    end
+
+    it "still splits when a backtick is unmatched" do
+      # An odd backtick count means no code span, so pipes stay delimiters.
+      output = render_block("A | B\n--|--\n1 ` odd | 2\n")
+      expect(output).to contain("1")
+      expect(output).to contain("2")
     end
 
     it "doesn't fail when more data columns than headers" do
