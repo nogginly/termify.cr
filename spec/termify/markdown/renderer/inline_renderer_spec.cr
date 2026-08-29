@@ -70,4 +70,77 @@ Spectator.describe Termify::Markdown::InlineRenderer do
       expect(inline_renderer.render("", NO_STYLE)).to eq("")
     end
   end
+
+  describe "#runs" do
+    it "returns a single unstyled run for plain text" do
+      runs = inline_renderer.runs("plain text", NO_STYLE)
+      expect(runs.size).to eq(1)
+      expect(runs.first.text).to eq("plain text")
+      expect(runs.first.ansi).to be_empty
+    end
+
+    it "returns no runs for empty input" do
+      expect(inline_renderer.runs("", NO_STYLE)).to be_empty
+    end
+
+    it "never puts escape sequences in run text" do
+      runs = inline_renderer.runs("a **b** c *d* e", NO_STYLE)
+      runs.each do |run|
+        expect(run.text).not_to contain("\e")
+      end
+    end
+
+    it "joins back to the visible text" do
+      runs = inline_renderer.runs("a **b** and `c` and [d](url)", NO_STYLE)
+      expect(runs.map(&.text).join).to eq("a b and c and d")
+    end
+
+    it "marks the styled span and only the styled span" do
+      runs = inline_renderer.runs("plain **bold** plain", NO_STYLE)
+      bold = runs.select { |run| run.ansi.includes?(Termify::ANSI::BOLD) }
+      expect(bold.map(&.text).join).to eq("bold")
+    end
+
+    it "carries the full active sequence, not a delta" do
+      style = Termify::Markdown::BlockStyle.new(fg: Colorize::ColorANSI::Red)
+      runs = inline_renderer.runs("a **b** c", style)
+      bold = runs.select { |run| run.text == "b" }
+      expect(bold.size).to eq(1)
+      # The bold run must also carry the block style, so it can stand alone.
+      expect(bold.first.ansi).to contain(Termify::ANSI::BOLD)
+      expect(bold.first.ansi).to contain(style.to_ansi)
+    end
+
+    it "carries the block style on every run, including the first" do
+      style = Termify::Markdown::BlockStyle.new(fg: Colorize::ColorANSI::Red)
+      runs = inline_renderer.runs("**bold first** then plain", style)
+      expect(runs).not_to be_empty
+      runs.each do |run|
+        expect(run.ansi).to contain(style.to_ansi)
+      end
+    end
+
+    it "does not style a code span's content as emphasis" do
+      runs = inline_renderer.runs("`**not bold**`", NO_STYLE)
+      expect(runs.map(&.text).join).to eq("**not bold**")
+    end
+
+    it "styles text nested inside a link" do
+      runs = inline_renderer.runs("[**bold link**](url)", NO_STYLE)
+      expect(runs.map(&.text).join).to eq("bold link")
+      expect(runs.any? { |run| run.ansi.includes?(Termify::ANSI::BOLD) }).to be_true
+    end
+  end
+
+  describe "#plain" do
+    it "strips markup and emits no escapes" do
+      expect(inline_renderer.plain("a **b** and `c`", NO_STYLE)).to eq("a b and c")
+    end
+
+    it "agrees with the visible text of #render" do
+      text = "mix of **bold**, *italic*, `code` and [links](url)"
+      rendered = strip_ansi(inline_renderer.render(text, NO_STYLE))
+      expect(inline_renderer.plain(text, NO_STYLE)).to eq(rendered)
+    end
+  end
 end

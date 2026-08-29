@@ -248,6 +248,58 @@ module Termify
       private def replay_sequence(block_style : Style, stack : Array({InlineElement, String})) : String
         ANSI::RESET + block_style.to_ansi + stack.map { |entry| entry[1] }.join
       end
+
+      # -- styled runs -------------------------------------------------------
+
+      # A stretch of text and the ANSI sequence active across it. `ansi` is the
+      # full active sequence, not a delta, so a run can be emitted on its own.
+      record Run, text : String, ansi : String do
+        def styled : String
+          ansi.empty? ? text : "#{ansi}#{text}#{ANSI::RESET}"
+        end
+      end
+
+      # SGR sequences, used to split rendered output back into runs.
+      private SGR_RE = /\e\[[0-9;]*m/
+
+      # Renders *text* as a sequence of runs: plain text paired with the ANSI
+      # active across it. Escapes never appear in `Run#text`, so callers can
+      # measure width, wrap, or lay out on the text and re-apply styling
+      # afterwards -- which is what table cells need, since tablo sizes columns
+      # on what it is given.
+      #
+      # Derived from `#render` rather than scanned separately, so the two can
+      # never disagree about what the markup means.
+      def runs(text : String, block_style : Style) : Array(Run)
+        rendered = render(text, block_style)
+        runs = [] of Run
+        # `render` does not emit the block style itself -- callers write it
+        # before calling in, and `replay_sequence` re-emits it only after a
+        # span closes. Seed it here so every run is standalone.
+        active = block_style.to_ansi
+        pos = 0
+
+        rendered.scan(SGR_RE) do |match|
+          seq = match[0]
+          chunk = rendered[pos...match.begin(0)]
+          runs << Run.new(chunk, active) unless chunk.empty?
+          # RESET clears the active sequence; anything else layers onto it,
+          # mirroring how `replay_sequence` rebuilds state at a span boundary.
+          active = seq == ANSI::RESET ? "" : active + seq
+          pos = match.begin(0) + seq.size
+        end
+
+        tail = rendered[pos..]
+        runs << Run.new(tail, active) unless tail.empty?
+        runs
+      end
+
+      # The visible text of *text* with all markup consumed and no escapes.
+      # Equivalent to joining `#runs`, but stated separately because callers
+      # laying out a table want the plain string on its own.
+      def plain(text : String, block_style : Style) : String
+        runs(text, block_style).map(&.text).join
+      end
     end
   end
 end
