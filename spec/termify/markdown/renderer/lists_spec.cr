@@ -103,6 +103,51 @@ Spectator.describe Termify::Markdown::Renderer do
         output = render_block("1. a\n2. b\n   1. nested\n3. c\n")
         expect(output).to contain("3. ")
       end
+
+      it "starts at the number written on the first item" do
+        output = render_block("3. Three\n4. Four\n")
+        lines = output.split('\n').reject(&.empty?)
+        expect(lines[0]).to contain("3. ")
+        expect(lines[0]).to contain("Three")
+        expect(lines[1]).to contain("4. ")
+        expect(lines[1]).to contain("Four")
+      end
+
+      it "counts on from the start number regardless of later numbers" do
+        output = render_block("5. five\n9. six\n1. seven\n")
+        lines = output.split('\n').reject(&.empty?)
+        expect(lines[0]).to contain("5. ")
+        expect(lines[1]).to contain("6. ")
+        expect(lines[2]).to contain("7. ")
+      end
+
+      it "seeds a nested level from its own first number" do
+        output = render_block("3. outer\n   7. inner\n   8. inner two\n")
+        lines = output.split('\n').reject(&.empty?)
+        expect(lines[0]).to contain("3. ")
+        expect(lines[1]).to contain("7. ")
+        expect(lines[2]).to contain("8. ")
+      end
+
+      it "resumes the outer counter after a differently numbered nested level" do
+        output = render_block("3. outer\n   7. inner\n4. outer two\n")
+        lines = output.split('\n').reject(&.empty?)
+        expect(lines[2]).to contain("4. ")
+      end
+
+      it "starts a new list from its own number after an unordered list" do
+        output = render_block("- bullet\n3. Three\n")
+        lines = output.split('\n').reject(&.empty?)
+        expect(lines[0]).to contain("* ")
+        expect(lines[1]).to contain("3. ")
+      end
+
+      it "renders a zero-numbered first item as zero" do
+        output = render_block("0. zero\n1. one\n")
+        lines = output.split('\n').reject(&.empty?)
+        expect(lines[0]).to contain("0. ")
+        expect(lines[1]).to contain("1. ")
+      end
     end
 
     describe "mixed ordered and unordered" do

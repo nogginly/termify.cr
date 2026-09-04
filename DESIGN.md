@@ -360,7 +360,30 @@ than discovering it through mangled output.
 
 ---
 
-## 9. Code fences
+## 9. Lists
+
+Nesting is held in `@list_stack`, one entry per open level, each carrying its
+indent, whether it is ordered, its counter, and the column its content starts at.
+Depth is the stack size; the bullet character and the indent of the emitted prefix
+both derive from it. A deeper indent pushes a level, a shallower one pops back to
+the matching entry, and a change of kind at the same indent pops and pushes -- an
+ordered item cannot continue an unordered list.
+
+Ordered numbering follows CommonMark: **the first item's number seeds the level,
+and every later number is ignored.** A list beginning `3.` renders 3, 4, 5
+whatever its remaining items claim. The seed is applied only where a level is
+pushed; within a level `increment_counter` counts, and popping back to an outer
+level resumes that level's own count rather than restarting it. Each nested level
+seeds from its own first item, so `7.` indented under `3.` starts at 7.
+
+That the counter ignores the written number is deliberate and looks, in isolation,
+exactly like the defect it replaced. The alternative -- printing each number as
+written -- was rejected because it makes the common `1. 1. 1.` idiom render as a
+list of ones.
+
+---
+
+## 10. Code fences
 
 `CodeRenderer` is instantiated when a fence opens, fed one body line at a time, and
 closed at the terminating marker. `@fence_indent` is captured at open so indented
@@ -381,7 +404,7 @@ styled output emitted immediately.
 
 ---
 
-## 10. Terminal and ANSI
+## 11. Terminal and ANSI
 
 `ANSI` holds the sequences and the colour helpers. Its sub-modules — `Cursor`,
 `Screen`, `Clear`, `Mouse` — are **not** included into `ANSI`; callers use

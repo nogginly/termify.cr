@@ -39,7 +39,7 @@ module Termify
       # -- patterns ----------------------------------------------------------
       private HEADING         = /^([#]{1,6}) (.*)/
       private UNORDERED_LIST  = /^\s*[-*+] (.*)/
-      private ORDERED_LIST    = /^\s*\d+\. (.*)/
+      private ORDERED_LIST    = /^\s*(\d+)\. (.*)/
       private HORIZONTAL_RULE = /^\s*(-{3,}|\*{3,}|_{3,})\s*$/
       private BULLETS         = ["*", "\u2013", "\u00b7"] # *, --, .
       private BLOCK_HTML      = /^\s*<[^>]+>\s*$/
@@ -575,23 +575,31 @@ module Termify
 
       # Updates the list nesting stack for a new item at *indent*.
       private def process_list_item(line : String) : Nil
-        indent, ordered, content, content_indent = parse_list_line(line)
-        update_list_stack(indent, ordered, content_indent)
+        indent, ordered, content, content_indent, number = parse_list_line(line)
+        update_list_stack(indent, ordered, content_indent, number)
         emit_list_item(content, list_item_prefix(ordered))
       end
 
-      # Parses indent, type, content text, and content column from a list line.
-      private def parse_list_line(line : String) : {Int32, Bool, String, Int32}
+      # Parses indent, type, content text, content column, and the item's own
+      # number from a list line. The number is 1 for unordered items, where it
+      # is unused. It seeds the counter only when a new level is pushed; within
+      # a level the counter increments and the written number is ignored.
+      private def parse_list_line(line : String) : {Int32, Bool, String, Int32, Int32}
         indent = line.size - line.lstrip.size
-        ordered = ORDERED_LIST.matches?(line)
-        content = ordered ? line.match!(ORDERED_LIST)[1] : line.match!(UNORDERED_LIST)[1]
-        {indent, ordered, content, line.size - content.size}
+        if match = ORDERED_LIST.match(line)
+          number = match[1].to_i? || 1
+          content = match[2]
+          {indent, true, content, line.size - content.size, number}
+        else
+          content = line.match!(UNORDERED_LIST)[1]
+          {indent, false, content, line.size - content.size, 1}
+        end
       end
 
       # Updates the list nesting stack for a new item at *indent*.
-      private def update_list_stack(indent : Int32, ordered : Bool, content_indent : Int32) : Nil
+      private def update_list_stack(indent : Int32, ordered : Bool, content_indent : Int32, number : Int32) : Nil
         if @list_stack.empty? || indent > @list_stack.last[:indent]
-          push_list_level(indent, ordered, content_indent)
+          push_list_level(indent, ordered, content_indent, number)
         elsif indent < @list_stack.last[:indent]
           while @list_stack.size > 1 && @list_stack.last[:indent] > indent
             @list_stack.pop
@@ -599,15 +607,16 @@ module Termify
           increment_counter(content_indent) if ordered
         elsif ordered != @list_stack.last[:ordered]
           @list_stack.pop
-          push_list_level(indent, ordered, content_indent)
+          push_list_level(indent, ordered, content_indent, number)
         else
           increment_counter(content_indent) if ordered
         end
       end
 
-      # Pushes a new level onto the list stack.
-      private def push_list_level(indent : Int32, ordered : Bool, content_indent : Int32) : Nil
-        @list_stack << {indent: indent, ordered: ordered, counter: ordered ? 1 : 0, content_indent: content_indent}
+      # Pushes a new level onto the list stack, seeding an ordered level with
+      # the number written on its first item.
+      private def push_list_level(indent : Int32, ordered : Bool, content_indent : Int32, number : Int32) : Nil
+        @list_stack << {indent: indent, ordered: ordered, counter: ordered ? number : 0, content_indent: content_indent}
       end
 
       # Increments the counter on the top stack entry, preserving all other fields.
