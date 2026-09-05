@@ -15,18 +15,7 @@ as deliberately unsupported, or nowhere at all.
 
 ## Must fix
 
-**`Terminal#cursor_row` can hang forever.** The read loop breaks on `'R'`, but
-`STDIN.read_char` returns `nil` at EOF, which never equals `'R'`. Any non-TTY stdin
--- CI, a pipe, a redirect -- spins the loop indefinitely. Break on `nil`, and
-bound the read.
-
-**Unsupported-platform guard is runtime code.** `terminal.cr` ends with a bare
-`raise` inside a `{% else %}` branch, so an unsupported target compiles and fails
-at program start instead of at build time. Use `{% raise %}`.
-
-**Pending blank line bypasses block accounting.** `handle_list_line` writes
-`@io << '\n'` directly on list exit without updating `@current_line_empty`, so the
-following `open_block` can emit a second blank line.
+Nothing outstanding.
 
 ---
 

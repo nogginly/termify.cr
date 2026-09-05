@@ -362,5 +362,54 @@ Spectator.describe Termify::Markdown::Renderer do
         expect(output).to contain("2. ")
       end
     end
+
+    describe "leaving a list" do
+      # The blank line between a list and what follows is emitted by
+      # handle_list_line. It must go through the same accounting as every
+      # other blank, or open_block adds a second one behind it.
+      def blank_runs(output : String) : Array(Int32)
+        runs = [] of Int32
+        count = 0
+        output.split('\n').each do |line|
+          if line.strip.empty?
+            count += 1
+          else
+            runs << count if count > 0
+            count = 0
+          end
+        end
+        runs
+      end
+
+      it "separates a list from a following paragraph by one blank line" do
+        output = render_block("- one\n- two\n\nAfter the list.\n")
+        expect(output).to contain("After the list.")
+        expect(blank_runs(output)).to all(be <= 1)
+      end
+
+      it "separates a list from a following heading by one blank line" do
+        output = render_block("- one\n\n# Heading\n")
+        expect(output).to contain("Heading")
+        expect(blank_runs(output)).to all(be <= 1)
+      end
+
+      it "leaves no blank line when the list is not followed by one" do
+        output = render_block("- one\nAfter the list.\n")
+        expect(output).to contain("After the list.")
+        expect(blank_runs(output)).to be_empty
+      end
+
+      it "collapses several blank lines after a list into one" do
+        output = render_block("- one\n\n\n\nAfter the list.\n")
+        expect(output).to contain("After the list.")
+        expect(blank_runs(output)).to all(be <= 1)
+      end
+
+      it "separates an ordered list from a following paragraph the same way" do
+        output = render_block("1. one\n2. two\n\nAfter the list.\n")
+        expect(output).to contain("After the list.")
+        expect(blank_runs(output)).to all(be <= 1)
+      end
+    end
   end
 end

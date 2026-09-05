@@ -553,9 +553,20 @@ module Termify
         else
           flush_table if @block_mode.table?
           exit_list
-          @io << '\n' if pending
+          emit_pending_blank if pending
           false
         end
+      end
+
+      # Emits the blank line deferred from inside a list. Skips it when the
+      # output already sits on a blank -- exit_list may have emitted one via
+      # close_block -- and records it either way, so the open_block that
+      # follows does not add a second.
+      private def emit_pending_blank : Nil
+        return if @current_line_empty
+
+        @current_line_empty = true
+        @io << '\n'
       end
 
       # Returns true if *line* has any positive indentation, making it a
