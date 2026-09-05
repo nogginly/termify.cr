@@ -417,6 +417,14 @@ behaviour; `UnixTerminal` implements `with_raw_input` via `tcgetattr`/`tcsetattr
 `WindowsTerminal` via console modes plus a `FlushConsoleInputBuffer` before yielding
 so queued input cannot corrupt the `\e[6n` cursor-position reply.
 
+Any query of this shape -- write a request, read a reply -- needs a terminal on
+*both* ends, since the request leaves by stdout and the answer arrives on stdin.
+`cursor_row` therefore checks both before asking and returns
+`DEFAULT_CURSOR_ROW` otherwise, and bounds the read besides. A terminal that
+receives the query and declines to answer will still block, because
+`with_raw_input` sets `VMIN` 1 and `VTIME` 0; a real timeout means changing that
+contract, which `SubScroller` also depends on.
+
 `ANSI::SubScroller` constrains output to a fixed-height scroll region: `start`
 reserves lines, queries the cursor row, and sets the region; `stop` restores
 full-screen scrolling. Height is clamped to 3..10.
@@ -505,6 +513,20 @@ Two rules follow. Any spec that observes a tablo styler must disable the gate
 explicitly (`with_tablo_styling` in the canary specs). And any assertion of the
 form "the collected data is well-formed" needs a companion assertion that data was
 collected at all.
+
+**Symptom: the program produces no output and never exits, but only under CI, a
+pipe, or a redirect.** A terminal query is waiting for a reply that cannot come.
+`\e[6n` leaves by stdout and is answered on stdin, so redirecting *either* one
+strands the read. Check both are ttys before asking, break on `nil` as well as on
+the terminator, and bound the read: `STDIN.read_char` returns `nil` at EOF, which
+never equals the character being waited for.
+
+**Symptom: a blank line appears twice between a list and what follows it.**
+Something wrote `'\n'` to `@io` without setting `@current_line_empty`, so the next
+`open_block` could not tell the output was already on a blank. Every blank line
+must go through the accounting -- `emit_pending_blank` is the pattern. Note this
+had two causes at once: the missing flag, and `exit_list` calling `close_block`,
+which may itself have emitted the blank a moment earlier.
 
 **Symptom: background colour codes look wrong by ten.** `Colorize::ColorANSI` enum
 values *are* the ANSI foreground codes; background is foreground plus ten.
