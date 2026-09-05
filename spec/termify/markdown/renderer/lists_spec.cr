@@ -188,6 +188,41 @@ Spectator.describe Termify::Markdown::Renderer do
       end
     end
 
+    describe "bullet glyphs" do
+      it "uses a distinct glyph at each of the three depths" do
+        output = render_block("- one\n  - two\n    - three\n")
+        lines = output.split('\n').reject(&.empty?)
+        expect(lines[0]).to contain("* ")
+        expect(lines[1]).to contain("+ ")
+        expect(lines[2]).to contain("- ")
+      end
+
+      it "cycles back to the first glyph at the fourth depth" do
+        output = render_block("- one\n  - two\n    - three\n      - four\n")
+        lines = output.split('\n').reject(&.empty?)
+        expect(lines[3]).to contain("* ")
+      end
+
+      it "renders every source marker with the same glyph" do
+        ["-", "*", "+"].each do |marker|
+          output = render_block("#{marker} item\n")
+          expect(output).to contain("* item")
+        end
+      end
+
+      it "treats a change of source marker as one continuing list" do
+        output = render_block("- one\n* two\n+ three\n")
+        lines = output.split('\n').reject(&.empty?)
+        expect(lines.size).to eq(3)
+        lines.each { |line| expect(line).to contain("* ") }
+      end
+
+      it "uses only ASCII glyphs" do
+        output = render_block("- one\n  - two\n    - three\n")
+        expect(output.each_char.all?(&.ascii?)).to be_true
+      end
+    end
+
     describe "mixed ordered and unordered" do
       it "renders an ordered list nested inside an unordered list" do
         output = render_block("- item\n  1. ordered nested\n")
@@ -198,7 +233,7 @@ Spectator.describe Termify::Markdown::Renderer do
       it "renders an unordered list nested inside an ordered list" do
         output = render_block("1. item\n   - unordered nested\n")
         expect(output).to contain("1. ")
-        expect(output).to contain("\u2013 ") # depth-1 bullet (en dash)
+        expect(output).to contain("+ ") # depth-1 bullet (plus)
       end
     end
 

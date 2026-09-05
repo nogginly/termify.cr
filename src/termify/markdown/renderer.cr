@@ -41,7 +41,7 @@ module Termify
       private UNORDERED_LIST  = /^\s*[-*+] (.*)/
       private ORDERED_LIST    = /^\s*(\d+)[.)] (.*)/
       private HORIZONTAL_RULE = /^\s*(-{3,}|\*{3,}|_{3,})\s*$/
-      private BULLETS         = ["*", "\u2013", "\u00b7"] # *, --, .
+      private BULLETS         = ["*", "+", "-"] # asterisk, plus, hyphen
       private BLOCK_HTML      = /^\s*<[^>]+>\s*$/
 
       # A candidate table row -- any line carrying at least one pipe. Two kinds

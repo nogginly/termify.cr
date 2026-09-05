@@ -376,13 +376,27 @@ pushed; within a level `increment_counter` counts, and popping back to an outer
 level resumes that level's own count rather than restarting it. Each nested level
 seeds from its own first item, so `7.` indented under `3.` starts at 7.
 
-Both delimiters are accepted, `3.` and `3)`, and both render as a full stop --
-`list_item_prefix` chooses the marker, so the delimiter written in the source is
-discarded exactly as the numbers are. CommonMark treats the two as distinct list
-types, where a change of delimiter starts a new list; Termify does not, so `1.`
-followed by `2)` continues one list. Preserving the distinction would mean
-carrying the delimiter on the stack beside the counter, which buys a difference
-few authors intend.
+Both delimiters are accepted, `3.` and `3)`, and both render as a full stop. The
+unordered markers `-`, `*` and `+` are likewise accepted and all render the same.
+The principle is one: **the marker written in the source is input syntax, the
+marker rendered is presentation, and neither determines the other.** Depth chooses
+the bullet, `list_item_prefix` chooses the ordered delimiter, and the author's
+keystroke chooses nothing -- exactly as the written numbers are discarded in
+favour of the counter. CommonMark disagrees on both counts, treating a change of
+delimiter or of bullet marker as the start of a new list; Termify continues one
+list instead. Preserving either distinction would mean carrying the marker on the
+stack beside the counter, which buys a difference few authors intend.
+
+Bullets are `*`, `+`, `-`, cycling by depth, chosen to recede in prominence as
+nesting deepens. They are deliberately ASCII. The Unicode alternatives are worse
+in a terminal on three counts: `U+2022` and `U+25AA` are drawn for proportional
+text and land small or low against a monospace baseline, they are often pulled
+from a fallback font with different vertical metrics, and every plausible
+candidate carries East Asian Ambiguous width, so a CJK-configured terminal renders
+them double-width and misaligns the line. ASCII punctuation is hinted as a set,
+guaranteed present, and unambiguously one column wide. Termify has no Unicode
+capability detection, so a Unicode bullet set could not be chosen safely even if
+it looked better.
 
 That the counter ignores the written number is deliberate and looks, in isolation,
 exactly like the defect it replaced. The alternative -- printing each number as
