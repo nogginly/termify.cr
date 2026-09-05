@@ -148,6 +148,44 @@ Spectator.describe Termify::Markdown::Renderer do
         expect(lines[0]).to contain("0. ")
         expect(lines[1]).to contain("1. ")
       end
+
+      it "accepts a close paren as the delimiter" do
+        output = render_block("1) one\n2) two\n")
+        lines = output.split('\n').reject(&.empty?)
+        expect(lines[0]).to contain("one")
+        expect(lines[1]).to contain("two")
+      end
+
+      it "renders a close paren delimiter as a full stop" do
+        output = render_block("3) Three\n")
+        lines = output.split('\n').reject(&.empty?)
+        expect(lines[0]).to contain("3. ")
+        expect(lines[0]).not_to contain("3) ")
+      end
+
+      it "treats the two delimiters as one list" do
+        output = render_block("1. one\n2) two\n3. three\n")
+        lines = output.split('\n').reject(&.empty?)
+        expect(lines[1]).to contain("2. ")
+        expect(lines[2]).to contain("3. ")
+      end
+
+      it "seeds from a close paren first item" do
+        output = render_block("7) seven\n8) eight\n")
+        lines = output.split('\n').reject(&.empty?)
+        expect(lines[0]).to contain("7. ")
+        expect(lines[1]).to contain("8. ")
+      end
+
+      it "does not treat a paren without a digit as a list" do
+        output = render_block("a) not a list\n")
+        expect(output).to contain("a) not a list")
+      end
+
+      it "does not treat a bare number and paren mid-line as a list" do
+        output = render_block("See item 2) for details.\n")
+        expect(output).to contain("See item 2) for details.")
+      end
     end
 
     describe "mixed ordered and unordered" do

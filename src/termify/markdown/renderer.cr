@@ -39,7 +39,7 @@ module Termify
       # -- patterns ----------------------------------------------------------
       private HEADING         = /^([#]{1,6}) (.*)/
       private UNORDERED_LIST  = /^\s*[-*+] (.*)/
-      private ORDERED_LIST    = /^\s*(\d+)\. (.*)/
+      private ORDERED_LIST    = /^\s*(\d+)[.)] (.*)/
       private HORIZONTAL_RULE = /^\s*(-{3,}|\*{3,}|_{3,})\s*$/
       private BULLETS         = ["*", "\u2013", "\u00b7"] # *, --, .
       private BLOCK_HTML      = /^\s*<[^>]+>\s*$/

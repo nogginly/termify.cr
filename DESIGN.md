@@ -376,6 +376,14 @@ pushed; within a level `increment_counter` counts, and popping back to an outer
 level resumes that level's own count rather than restarting it. Each nested level
 seeds from its own first item, so `7.` indented under `3.` starts at 7.
 
+Both delimiters are accepted, `3.` and `3)`, and both render as a full stop --
+`list_item_prefix` chooses the marker, so the delimiter written in the source is
+discarded exactly as the numbers are. CommonMark treats the two as distinct list
+types, where a change of delimiter starts a new list; Termify does not, so `1.`
+followed by `2)` continues one list. Preserving the distinction would mean
+carrying the delimiter on the stack beside the counter, which buys a difference
+few authors intend.
+
 That the counter ignores the written number is deliberate and looks, in isolation,
 exactly like the defect it replaced. The alternative -- printing each number as
 written -- was rejected because it makes the common `1. 1. 1.` idiom render as a
