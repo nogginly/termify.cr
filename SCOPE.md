@@ -31,12 +31,6 @@ why its specs are blocked on a live TTY. Inject `io : IO = STDOUT` at
 **Replace cross-instance private access.** `close_quote_renderer` reads
 `r.@current_line_empty`. Legal, but brittle; expose a `protected getter`.
 
-**Fix `Stylesheet` aliasing and silent downgrade.** The primary constructor stores
-the caller's hashes by reference while the `merge:` path `dup`s -- make both dup.
-Separately, `code_block_style` falls back to `CodeBlockStyle::NONE` when someone
-assigns a plain `BlockStyle` via `[]=`, silently discarding their fg/bg; promote
-via `CodeBlockStyle.new.merge(s)` instead.
-
 **Remove or adopt dead ANSI helpers.** `ANSI.sequence` and `ANSI.reset_and_replay`
 have no callers; `Renderer#replay_sequence` does the job. Delete them, or route the
 renderer through them.

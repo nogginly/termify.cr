@@ -33,12 +33,16 @@ module Termify
     # Missing entries fall back to Style::NONE.
     # Use .default for the built-in theme, or .new for a blank slate.
     class Stylesheet
+      # Copies both hashes. A Stylesheet owns its entries, so a caller mutating
+      # the hash it passed in -- or reusing it for a second Stylesheet -- cannot
+      # reach inside this one. The merge: constructor below copies for the same
+      # reason.
       def initialize(
         block_styles : Hash(BlockElement, BlockStyle) = {} of BlockElement => BlockStyle,
         inline_styles : Hash(InlineElement, InlineStyle) = {} of InlineElement => InlineStyle,
       )
-        @block_styles = block_styles
-        @inline_styles = inline_styles
+        @block_styles = block_styles.dup
+        @inline_styles = inline_styles.dup
       end
 
       # Symbol/String constructor -- maps {:h1 => {bold: true}, "bold" => {bold: true}}
@@ -149,11 +153,15 @@ module Termify
         @block_styles.fetch(element, BlockStyle::NONE)
       end
 
-      # Returns the CodeBlockStyle for code blocks. Falls back to CodeBlockStyle::NONE
-      # when the entry is absent or is a plain BlockStyle.
+      # Returns the CodeBlockStyle for code blocks. A plain BlockStyle assigned
+      # through []= is promoted, keeping its colours and prefixes and taking
+      # code-specific defaults from NONE. Absent entries give CodeBlockStyle::NONE.
       def code_block_style : CodeBlockStyle
-        s = @block_styles[BlockElement::CodeBlock]?
-        s.is_a?(CodeBlockStyle) ? s : CodeBlockStyle::NONE
+        case style = @block_styles[BlockElement::CodeBlock]?
+        when CodeBlockStyle then style
+        when BlockStyle     then CodeBlockStyle::NONE.merge(style)
+        else                     CodeBlockStyle::NONE
+        end
       end
 
       # Look up the style for an inline element; returns InlineStyle::NONE if not mapped.
