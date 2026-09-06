@@ -28,25 +28,9 @@ why its specs are blocked on a live TTY. Inject `io : IO = STDOUT` at
 `ANSI::Cursor` and `ANSI::Clear` helpers next door, and remove
 `self.write_thinking_chunk`, which belongs to some other application.
 
-**Replace cross-instance private access.** `close_quote_renderer` reads
-`r.@current_line_empty`. Legal, but brittle; expose a `protected getter`.
-
-**Remove or adopt dead ANSI helpers.** `ANSI.sequence` and `ANSI.reset_and_replay`
-have no callers; `Renderer#replay_sequence` does the job. Delete them, or route the
-renderer through them.
-
 **Recover five missing stylesheet specs.** The suite went from 246 examples to 241
 across the spec split; a `str_replace` likely clobbered content in
 `stylesheet_spec.cr`. Compare against repo history.
-
-**Fix stale comments.** `process_fence_line` carries a duplicated doc comment; the
-"Renders buffered rows via TableRenderer" comment sits above `list_visual_indent`
-rather than `flush_table`; `process_list_item` and `update_list_stack` share an
-identical comment.
-
-**Fix README usage snippet.** The rendering example has an unterminated string
-literal and a missing `end`, and the samples section says `mdterm.cr` where it
-means `md2term.cr`.
 
 **Widen syntax-highlighting coverage.** Only JavaScript has been exercised
 meaningfully. Test more languages against the buffering path, and consider
