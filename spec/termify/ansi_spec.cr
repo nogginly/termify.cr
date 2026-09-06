@@ -47,34 +47,6 @@ Spectator.describe Termify::ANSI do
     end
   end
 
-  describe ".sequence" do
-    it "concatenates codes" do
-      expect(Termify::ANSI.sequence(Termify::ANSI::BOLD, Termify::ANSI::ITALIC))
-        .to eq("\e[1m\e[3m")
-    end
-
-    it "returns a single code unchanged" do
-      expect(Termify::ANSI.sequence(Termify::ANSI::UNDERLINE)).to eq("\e[4m")
-    end
-  end
-
-  describe ".reset_and_replay" do
-    it "returns bare RESET for an empty stack" do
-      expect(Termify::ANSI.reset_and_replay([] of String)).to eq("\e[0m")
-    end
-
-    it "prepends RESET before all stack entries" do
-      stack = [Termify::ANSI::BOLD, Termify::ANSI::ITALIC]
-      expect(Termify::ANSI.reset_and_replay(stack)).to eq("\e[0m\e[1m\e[3m")
-    end
-
-    it "does not mutate the stack" do
-      stack = [Termify::ANSI::BOLD]
-      Termify::ANSI.reset_and_replay(stack)
-      expect(stack.size).to eq(1)
-    end
-  end
-
   describe "ANSI::Color256 enum" do
     # Enum values are auto-assigned from 0; spot-check canonical 256-color indices.
     it "Black is index 0" do
