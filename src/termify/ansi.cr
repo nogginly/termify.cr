@@ -50,22 +50,6 @@ module Termify
     end
 
     # -------------------------------------------------------------------------
-    # Composition
-    # -------------------------------------------------------------------------
-
-    # Concatenates multiple SGR codes into one string.
-    def self.sequence(*codes : String) : String
-      codes.join
-    end
-
-    # Emits a full reset followed by every sequence on *stack* (bottom -> top).
-    # Called by the renderer whenever a style is popped from the inline stack.
-    def self.reset_and_replay(stack : Array(String)) : String
-      return RESET if stack.empty?
-      RESET + stack.join
-    end
-
-    # -------------------------------------------------------------------------
     # Writing
     # -------------------------------------------------------------------------
 

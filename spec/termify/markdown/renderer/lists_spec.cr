@@ -148,6 +148,113 @@ Spectator.describe Termify::Markdown::Renderer do
         expect(lines[0]).to contain("0. ")
         expect(lines[1]).to contain("1. ")
       end
+
+      it "accepts a close paren as the delimiter" do
+        output = render_block("1) one\n2) two\n")
+        lines = output.split('\n').reject(&.empty?)
+        expect(lines[0]).to contain("one")
+        expect(lines[1]).to contain("two")
+      end
+
+      it "renders a close paren delimiter as a full stop" do
+        output = render_block("3) Three\n")
+        lines = output.split('\n').reject(&.empty?)
+        expect(lines[0]).to contain("3. ")
+        expect(lines[0]).not_to contain("3) ")
+      end
+
+      it "treats the two delimiters as one list" do
+        output = render_block("1. one\n2) two\n3. three\n")
+        lines = output.split('\n').reject(&.empty?)
+        expect(lines[1]).to contain("2. ")
+        expect(lines[2]).to contain("3. ")
+      end
+
+      it "seeds from a close paren first item" do
+        output = render_block("7) seven\n8) eight\n")
+        lines = output.split('\n').reject(&.empty?)
+        expect(lines[0]).to contain("7. ")
+        expect(lines[1]).to contain("8. ")
+      end
+
+      it "does not treat a paren without a digit as a list" do
+        output = render_block("a) not a list\n")
+        expect(output).to contain("a) not a list")
+      end
+
+      it "does not treat a bare number and paren mid-line as a list" do
+        output = render_block("See item 2) for details.\n")
+        expect(output).to contain("See item 2) for details.")
+      end
+    end
+
+    describe "bullet glyphs" do
+      it "uses a distinct glyph at each of the three depths" do
+        output = render_block("- one\n  - two\n    - three\n")
+        lines = output.split('\n').reject(&.empty?)
+        expect(lines[0]).to contain("* ")
+        expect(lines[1]).to contain("+ ")
+        expect(lines[2]).to contain("- ")
+      end
+
+      it "cycles back to the first glyph at the fourth depth" do
+        output = render_block("- one\n  - two\n    - three\n      - four\n")
+        lines = output.split('\n').reject(&.empty?)
+        expect(lines[3]).to contain("* ")
+      end
+
+      it "renders every source marker with the same glyph" do
+        ["-", "*", "+"].each do |marker|
+          output = render_block("#{marker} item\n")
+          expect(output).to contain("* item")
+        end
+      end
+
+      it "treats a change of source marker as one continuing list" do
+        output = render_block("- one\n* two\n+ three\n")
+        lines = output.split('\n').reject(&.empty?)
+        expect(lines.size).to eq(3)
+        lines.each { |line| expect(line).to contain("* ") }
+      end
+
+      it "uses only ASCII glyphs" do
+        output = render_block("- one\n  - two\n    - three\n")
+        expect(output.each_char.all?(&.ascii?)).to be_true
+      end
+    end
+
+    describe "list item line_prefix" do
+      def render_with_prefix(text : String, prefix : String) : String
+        sheet = Stylesheet.default
+        sheet[BlockElement::ListItem] = BlockStyle.new(line_prefix: prefix)
+        io = IO::Memory.new
+        r = Renderer.new(io, stylesheet: sheet)
+        r.feed(text)
+        r.close
+        io.to_s
+      end
+
+      it "emits the prefix ahead of the marker" do
+        output = render_with_prefix("- one\n", "| ")
+        expect(output).to contain("| * one")
+      end
+
+      it "emits the prefix ahead of the indent when nested" do
+        output = render_with_prefix("- one\n  - two\n", "| ")
+        lines = output.split('\n').reject(&.empty?)
+        expect(lines[1]).to contain("|   + two")
+      end
+
+      it "emits nothing extra when no prefix is set" do
+        output = render_block("- one\n")
+        lines = output.split('\n').reject(&.empty?)
+        expect(lines[0].lstrip).to start_with("* one")
+      end
+
+      it "emits the prefix on ordered items too" do
+        output = render_with_prefix("1. one\n", "| ")
+        expect(output).to contain("| 1. one")
+      end
     end
 
     describe "mixed ordered and unordered" do
@@ -160,7 +267,7 @@ Spectator.describe Termify::Markdown::Renderer do
       it "renders an unordered list nested inside an ordered list" do
         output = render_block("1. item\n   - unordered nested\n")
         expect(output).to contain("1. ")
-        expect(output).to contain("\u2013 ") # depth-1 bullet (en dash)
+        expect(output).to contain("+ ") # depth-1 bullet (plus)
       end
     end
 
@@ -323,6 +430,29 @@ Spectator.describe Termify::Markdown::Renderer do
         expect(output.lines.select { |l| l.includes?("quoted") }.first).to match(/^\s+\| quoted/)
       end
 
+      it "composes the blockquote prefix ahead of the list item prefix" do
+        sheet = Stylesheet.new({:list_item => {line_prefix: "# "}},
+          merge: Stylesheet.default)
+        io = IO::Memory.new
+        r = Renderer.new(io, sheet)
+        r.feed("> - item\n")
+        r.close
+        plain = io.to_s.gsub(/\e\[[0-9;]*m/, "")
+        expect(plain).to contain("| # * item")
+      end
+
+      it "keeps the gutter aligned as the quoted list nests" do
+        sheet = Stylesheet.new({:list_item => {line_prefix: "# "}},
+          merge: Stylesheet.default)
+        io = IO::Memory.new
+        r = Renderer.new(io, sheet)
+        r.feed("> - one\n>   - two\n")
+        r.close
+        plain = io.to_s.gsub(/\e\[[0-9;]*m/, "")
+        expect(plain).to contain("| # * one")
+        expect(plain).to contain("| #   + two")
+      end
+
       it "renders a blockquote with its own nested list inside a list item" do
         md = "1. Three\n  > Block quote\n  >\n  > - With its own list\n  > - Of stuff\n2. Four\n"
         output = render_block(md)
@@ -360,6 +490,55 @@ Spectator.describe Termify::Markdown::Renderer do
       it "resumes the outer list after a blockquote continuation" do
         output = render_block("1. Three\n  > quoted\n2. Four\n")
         expect(output).to contain("2. ")
+      end
+    end
+
+    describe "leaving a list" do
+      # The blank line between a list and what follows is emitted by
+      # handle_list_line. It must go through the same accounting as every
+      # other blank, or open_block adds a second one behind it.
+      def blank_runs(output : String) : Array(Int32)
+        runs = [] of Int32
+        count = 0
+        output.split('\n').each do |line|
+          if line.strip.empty?
+            count += 1
+          else
+            runs << count if count > 0
+            count = 0
+          end
+        end
+        runs
+      end
+
+      it "separates a list from a following paragraph by one blank line" do
+        output = render_block("- one\n- two\n\nAfter the list.\n")
+        expect(output).to contain("After the list.")
+        expect(blank_runs(output)).to all(be <= 1)
+      end
+
+      it "separates a list from a following heading by one blank line" do
+        output = render_block("- one\n\n# Heading\n")
+        expect(output).to contain("Heading")
+        expect(blank_runs(output)).to all(be <= 1)
+      end
+
+      it "leaves no blank line when the list is not followed by one" do
+        output = render_block("- one\nAfter the list.\n")
+        expect(output).to contain("After the list.")
+        expect(blank_runs(output)).to be_empty
+      end
+
+      it "collapses several blank lines after a list into one" do
+        output = render_block("- one\n\n\n\nAfter the list.\n")
+        expect(output).to contain("After the list.")
+        expect(blank_runs(output)).to all(be <= 1)
+      end
+
+      it "separates an ordered list from a following paragraph the same way" do
+        output = render_block("1. one\n2. two\n\nAfter the list.\n")
+        expect(output).to contain("After the list.")
+        expect(blank_runs(output)).to all(be <= 1)
       end
     end
   end

@@ -39,7 +39,7 @@ at_exit { term.restore_console }
 ```crystal
 Termify.render_markdown do |io|
   io.puts "# Hello"
-  io << "_Hello_, **World!**
+  io.puts "_Hello_, **World!**"
 end
 ```
 
@@ -76,6 +76,37 @@ Termify.render_markdown(STDOUT, STYLESHEET) do |md_io|
 end
 
 ```
+
+### Progress while gathering
+
+Most Markdown renders as it arrives. Two things cannot: a table needs every row
+before it can size its columns, and a code block needs its whole body before it
+can be syntax highlighted. When Markdown is streaming in slowly, output stops for
+as long as that takes, and a reader cannot tell if the app has locked up.
+
+Pass an `on_gather` handler to hear about it so you can control what to show and when.
+
+```crystal
+handler = ->(event : Termify::Markdown::GatherEvent) {
+  case event.phase
+  in .started?    then spinner.start(event.kind)
+  in .progressed? then spinner.count = event.units # rows, or lines
+  in .finished?   then spinner.stop
+  end
+}
+
+Termify.render_markdown(STDOUT, STYLESHEET, on_gather: handler) do |md_io|
+  # send your Markdown to `md_io`
+end
+```
+
+Nothing is written between `Started` and `Finished`, so a spinner drawn on the
+current line can be cleared before the finished block lands on it. A `Started` is
+always followed by a `Finished`, including when a document ends mid-table, and a
+handler that raises will not stop the render.
+
+See [`md2term`](./samples/md2term.cr) for a working spinner, which reads slowly
+enough that you can watch it.
 
 ## Credits
 

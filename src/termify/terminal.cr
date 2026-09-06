@@ -12,18 +12,35 @@ module Termify
     # Output mode is left as-is (already set up by setup_console).
     abstract def with_raw_input(&)
 
-    # Return the row number of the cursor's current position
+    # Row reported when the terminal cannot be asked, or answers unintelligibly.
+    DEFAULT_CURSOR_ROW = 1
+
+    # Upper bound on characters read while awaiting a cursor position report.
+    # A well-formed reply is "ESC [ <row> ; <col> R" -- far shorter than this.
+    private READ_LIMIT = 32
+
+    # The row field of a cursor position report.
+    private CURSOR_REPORT = /\[(\d+);/
+
+    # Return the row number of the cursor's current position.
+    #
+    # Asking requires a terminal on both ends: the query goes to stdout and the
+    # reply arrives on stdin. Where either is redirected there is nobody to
+    # answer, so this returns `DEFAULT_CURSOR_ROW` rather than waiting.
     def cursor_row : Int32
+      return DEFAULT_CURSOR_ROW unless STDIN.tty? && STDOUT.tty?
+
       with_raw_input do
         print "\e[6n"
         STDOUT.flush
         response = String.build do |str_io|
-          loop do
-            break if (ch = STDIN.read_char) == 'R'
-            str_io << ch
+          READ_LIMIT.times do
+            char = STDIN.read_char
+            break if char.nil? || char == 'R'
+            str_io << char
           end
         end
-        response.match(/\[(\d+);/).try(&.[1].to_i) || 1
+        response.match(CURSOR_REPORT).try(&.[1].to_i?) || DEFAULT_CURSOR_ROW
       end
     end
 
@@ -56,6 +73,6 @@ end
 {% elsif flag?(:windows) %}
   require "./terminal/windows.cr"
 {% else %}
-  # Raise compile-time error to indicate no Terminal supported on the platform
-  raise "Terminal unsupported; requires Linux, macOS, or Windows."
+  # Compile-time error: no Terminal implementation exists for this target.
+  {% raise "Terminal unsupported; requires Linux, macOS, or Windows." %}
 {% end %}

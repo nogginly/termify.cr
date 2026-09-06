@@ -9,15 +9,15 @@
 
 ## Getting started
 
-|Command                             |Description                                                                       |
-|------------------------------------|----------------------------------------------------------------------------------|
-|`ops up`                            |Gets everything setup including `crystal` via `apt` or `brew` if applicable.      |
-|`ops build-debug` (or `build`, `bd`)|Make a debug build of `benchmark` sample, in `bin/debug` folder.                  |
-|`ops build-release` (or `br`)       |Make a release / production build of `benchmark` sample,  in `bin/release` folder.|
-|`ops lint`                          |Run `ameba` on the source code                                                    |
-|`ops test`                          |Run `crystal spec` on the source code                                             |
-|`ops clean`                         |Remove debug and release build files                                              |
-|`ops wipe`                          |In addition to cleaning, remove all compiler caches                               |
+Command                             |Description                                                                       
+------------------------------------|----------------------------------------------------------------------------------
+`ops up`                            |Gets everything setup including `crystal` via `apt` or `brew` if applicable.      
+`ops build-debug` (or `build`, `bd`)|Make a debug build of `benchmark` sample, in `bin/debug` folder.                  
+`ops build-release` (or `br`)       |Make a release / production build of `benchmark` sample,  in `bin/release` folder.
+`ops lint`                          |Run `ameba` on the source code                                                    
+`ops test`                          |Run `crystal spec` on the source code                                             
+`ops clean`                         |Remove debug and release build files                                              
+`ops wipe`                          |In addition to cleaning, remove all compiler caches                               
 
 ### Build and run for development
 
@@ -36,7 +36,7 @@ Run `ops build-debug` to make a debug build in the `bin/debug/` folder
 This is a simple test app that reads a given Markdown file and renders it using Termify.
 
 ```sh
-crystal run samples/mdterm.cr -- YOURMARKDOWNFILE.md
+crystal run samples/md2term.cr -- YOURMARKDOWNFILE.md
 ```
 
 ### `samples/scrollcat`

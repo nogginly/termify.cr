@@ -1,4 +1,5 @@
 require "./style_sheet"
+require "./gather_event"
 require "./table_renderer"
 require "./code_renderer"
 require "./blockquote_io"
@@ -39,9 +40,9 @@ module Termify
       # -- patterns ----------------------------------------------------------
       private HEADING         = /^([#]{1,6}) (.*)/
       private UNORDERED_LIST  = /^\s*[-*+] (.*)/
-      private ORDERED_LIST    = /^\s*(\d+)\. (.*)/
+      private ORDERED_LIST    = /^\s*(\d+)[.)] (.*)/
       private HORIZONTAL_RULE = /^\s*(-{3,}|\*{3,}|_{3,})\s*$/
-      private BULLETS         = ["*", "\u2013", "\u00b7"] # *, --, .
+      private BULLETS         = ["*", "+", "-"] # asterisk, plus, hyphen
       private BLOCK_HTML      = /^\s*<[^>]+>\s*$/
 
       # A candidate table row -- any line carrying at least one pipe. Two kinds
@@ -78,7 +79,11 @@ module Termify
       end
 
       # -- lifecycle ---------------------------------------------------------
-      def initialize(@io : IO, @stylesheet : Stylesheet = Stylesheet.default)
+      def initialize(
+        @io : IO,
+        @stylesheet : Stylesheet = Stylesheet.default,
+        @on_gather : Proc(GatherEvent, Nil)? = nil,
+      )
         @inline = InlineRenderer.new(@stylesheet)
         @closed = false
         @buf = String::Builder.new
@@ -87,6 +92,11 @@ module Termify
         @fence_indent = 0
         @table_rows = [] of Array(String)
         @table_col_alignments = [] of TableRenderer::ColumnAlignment
+
+        # Non-nil while content is being held back. Drives the guarantee that
+        # a Started event is always answered by a Finished one.
+        @gathering = nil.as(GatherKind?)
+        @gather_units = 0
 
         # A row that looks like a table header, held back for one line while
         # we wait to see whether a delimiter row follows. See
@@ -125,7 +135,9 @@ module Termify
       end
 
       # Flushes any buffered content AND resets the renderer, closing off
-      # any block/list/blockquote/table states.
+      # any block/list/blockquote/table states. The ensure is what makes the
+      # Started/Finished pairing a guarantee rather than an intention: it
+      # covers close, an early reset, and an exception raised mid-table.
       def reset
         flush_complete_lines
         remainder = @buf.to_s
@@ -133,11 +145,65 @@ module Termify
         process_line(remainder) unless remainder.empty?
         close_quote_renderer
         release_table_candidate
+        close_code_renderer
         flush_table if @block_mode.table?
         close_block(nil)
+      ensure
+        gather_finished
+      end
+
+      # Closes an open fence and emits whatever the code renderer held back.
+      # Reached from the closing marker and from reset, so a document that ends
+      # mid-fence still gets its code. gather_finished comes first: closing the
+      # code renderer is what writes a buffered highlighted body.
+      private def close_code_renderer : Nil
+        renderer = @code_renderer
+        return if renderer.nil?
+
+        gather_finished
+        renderer.close
+        @code_renderer = nil
+        @block_mode = BlockMode::Normal
       end
 
       # -- private -----------------------------------------------------------
+      # Marks the start of held-back content. A second call while already
+      # gathering is ignored, so nesting cannot open a second pair.
+      private def gather_started(kind : GatherKind) : Nil
+        return if @gathering
+        @gathering = kind
+        @gather_units = 0
+        emit_gather(GatherPhase::Started, kind)
+      end
+
+      # Reports one more unit of held-back content: a table row, a code line.
+      private def gather_progressed : Nil
+        kind = @gathering
+        return if kind.nil?
+        @gather_units += 1
+        emit_gather(GatherPhase::Progressed, kind)
+      end
+
+      # Closes the pair. Safe to call when not gathering, which is what lets
+      # reset call it unconditionally from an ensure.
+      private def gather_finished : Nil
+        kind = @gathering
+        return if kind.nil?
+        @gathering = nil
+        emit_gather(GatherPhase::Finished, kind)
+      end
+
+      # The handler is presentation code supplied by the caller. Its failure
+      # must not abort a render, and must not stop the Finished event that
+      # tells the caller to take its spinner down.
+      private def emit_gather(phase : GatherPhase, kind : GatherKind) : Nil
+        handler = @on_gather
+        return if handler.nil?
+        handler.call(GatherEvent.new(phase, kind, @gather_units))
+      rescue
+        nil
+      end
+
       # Drains every complete (newline-terminated) line from @buf, passing each
       # to process_line. Leaves the trailing partial line (possibly empty) in @buf.
       private def flush_complete_lines : Nil
@@ -171,7 +237,6 @@ module Termify
       end
 
       # Handles a line while in CodeFence mode. Returns true if consumed.
-      # Handles a line while in CodeFence mode. Returns true if consumed.
       # When inside a list, strips the item's content indent before checking
       # the fence marker so indented fences work correctly.
       private def process_fence_line(line : String) : Bool
@@ -181,11 +246,16 @@ module Termify
         # into content when a fence opens with leading spaces.
         stripped = (@fence_indent > 0 && line.starts_with?(" " * @fence_indent)) ? line[@fence_indent..] : line
         if stripped.starts_with?(@fence_marker)
-          @code_renderer.try(&.close)
-          @code_renderer = nil
-          @block_mode = BlockMode::Normal
+          close_code_renderer
         else
+          # After open_block, which emits the block's top margin. Starting the
+          # gather before it would put a newline between Started and Finished,
+          # under a caller's spinner. Only the code renderer knows whether it
+          # holds lines back: a theme is not enough, since a language with no
+          # lexer streams as plain text.
           open_block(BlockElement::CodeBlock)
+          gather_started(GatherKind::CodeBlock) if @code_renderer.try(&.buffering?)
+          gather_progressed
           @code_renderer.try(&.feed(stripped))
           @current_line_empty = false
         end
@@ -241,6 +311,7 @@ module Termify
 
         if table_separator?(line)
           @block_mode = BlockMode::Table
+          gather_started(GatherKind::Table)
           buffer_table_row(candidate)
           buffer_table_row(line)
           return true
@@ -309,6 +380,7 @@ module Termify
       end
 
       private def buffer_table_row(line : String) : Nil
+        gather_progressed
         cells = trim_edge_cells(split_cells(line), line).map(&.strip)
 
         if table_separator?(line)
@@ -327,13 +399,16 @@ module Termify
         end
       end
 
-      # Renders buffered rows via TableRenderer and resets table state.
       # Returns leading spaces matching current list content indent, or "".
       private def list_visual_indent : String
         @list_stack.empty? ? "" : " " * @list_stack.last[:content_indent]
       end
 
+      # Renders buffered rows via TableRenderer and resets table state.
+      # gather_finished comes first, before any byte is written: the caller
+      # needs its spinner down before the table lands on top of it.
       private def flush_table : Nil
+        gather_finished
         close_block(nil)
         unless @table_rows.empty?
           indent = @list_stack.empty? ? 0 : @list_stack.last[:content_indent]
@@ -389,8 +464,12 @@ module Termify
         is_nested = @io.is_a?(BlockquoteIO)
         suffix = (style.bg && !ansi.empty? && !is_nested) ? ANSI::ERASE_LINE + ANSI::RESET : ""
         wrapped_io = BlockquoteIO.new(@io, list_visual_indent + ansi + prefix, suffix)
-        @quote_renderer = Renderer.new(wrapped_io, @stylesheet)
+        @quote_renderer = Renderer.new(wrapped_io, @stylesheet, @on_gather)
       end
+
+      # True when the last line written was blank. A parent renderer reads this
+      # from its closing child so margin accounting survives the handover.
+      protected getter? current_line_empty : Bool
 
       # Closes and flushes the child renderer, syncing blank-line state back
       # to the parent so margin logic stays correct for the next block.
@@ -398,7 +477,7 @@ module Termify
         if r = @quote_renderer
           r.close
           @quote_renderer = nil
-          @current_line_empty = r.@current_line_empty
+          @current_line_empty = r.current_line_empty?
         end
       end
 
@@ -553,9 +632,20 @@ module Termify
         else
           flush_table if @block_mode.table?
           exit_list
-          @io << '\n' if pending
+          emit_pending_blank if pending
           false
         end
+      end
+
+      # Emits the blank line deferred from inside a list. Skips it when the
+      # output already sits on a blank -- exit_list may have emitted one via
+      # close_block -- and records it either way, so the open_block that
+      # follows does not add a second.
+      private def emit_pending_blank : Nil
+        return if @current_line_empty
+
+        @current_line_empty = true
+        @io << '\n'
       end
 
       # Returns true if *line* has any positive indentation, making it a
@@ -573,7 +663,7 @@ module Termify
         dispatch_block(line)
       end
 
-      # Updates the list nesting stack for a new item at *indent*.
+      # Emits one item: parses the line, updates nesting, renders the content.
       private def process_list_item(line : String) : Nil
         indent, ordered, content, content_indent, number = parse_list_line(line)
         update_list_stack(indent, ordered, content_indent, number)
@@ -635,14 +725,17 @@ module Termify
         end
       end
 
-      # Emits one list item using ListItem stylesheet style but a dynamic prefix.
+      # Emits one list item. The marker comes from depth, not from the
+      # stylesheet; line_prefix is honoured ahead of it, at column zero, so it
+      # reads as a gutter beside the indented marker rather than part of it.
       private def emit_list_item(content : String, list_prefix : String) : Nil
         open_block(BlockElement::ListItem)
         style = @stylesheet[BlockElement::ListItem]
         ansi = style.to_ansi
+        prefix = style.line_prefix || ""
         erase = (style.bg && !ansi.empty?) ? ANSI::ERASE_LINE : ""
         reset = ansi.empty? ? "" : ANSI::RESET
-        @io << ansi << list_prefix << @inline.render(content, style) << erase << reset << (style.line_suffix || "") << '\n'
+        @io << ansi << prefix << list_prefix << @inline.render(content, style) << erase << reset << (style.line_suffix || "") << '\n'
         @current_line_empty = false
       end
     end

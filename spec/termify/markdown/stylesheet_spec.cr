@@ -127,8 +127,8 @@ Spectator.describe Termify::Markdown::Stylesheet do
       expect(s.fg).not_to be_nil
     end
 
-    it "ListItem has a line_prefix" do
-      expect(sheet[Termify::Markdown::BlockElement::ListItem].line_prefix).not_to be_nil
+    it "ListItem carries no line_prefix -- the marker comes from depth" do
+      expect(sheet[Termify::Markdown::BlockElement::ListItem].line_prefix).to be_nil
     end
 
     it "HtmlTag has a fg colour" do
@@ -412,10 +412,79 @@ Spectator.describe Termify::Markdown::Stylesheet do
       expect(sheet.code_block_style.gutter_style).to eq(gs)
     end
 
-    it "returns CodeBlockStyle::NONE when the entry is a plain BlockStyle" do
+    it "promotes a plain BlockStyle rather than discarding it" do
+      plain = Termify::Markdown::BlockStyle.new(bold: true, fg: Colorize::ColorANSI::Red)
       sheet = Termify::Markdown::Stylesheet.new(
-        block_styles: {Termify::Markdown::BlockElement::CodeBlock => Termify::Markdown::BlockStyle.new(bold: true)})
+        block_styles: {Termify::Markdown::BlockElement::CodeBlock => plain})
+      promoted = sheet.code_block_style
+      expect(promoted).to be_a(Termify::Markdown::CodeBlockStyle)
+      expect(promoted.bold?).to be_true
+      expect(promoted.fg).to eq(Colorize::ColorANSI::Red)
+    end
+
+    it "promotes a plain BlockStyle assigned through []=" do
+      sheet = Termify::Markdown::Stylesheet.new
+      sheet[Termify::Markdown::BlockElement::CodeBlock] =
+        Termify::Markdown::BlockStyle.new(line_prefix: "> ")
+      expect(sheet.code_block_style.line_prefix).to eq("> ")
+    end
+
+    it "leaves code-specific properties at their defaults when promoting" do
+      sheet = Termify::Markdown::Stylesheet.new
+      sheet[Termify::Markdown::BlockElement::CodeBlock] =
+        Termify::Markdown::BlockStyle.new(bold: true)
+      promoted = sheet.code_block_style
+      expect(promoted.line_number_format).to be_nil
+      expect(promoted.highlight_theme).to be_nil
+    end
+
+    it "returns CodeBlockStyle::NONE when there is no entry at all" do
+      sheet = Termify::Markdown::Stylesheet.new
       expect(sheet.code_block_style).to eq(Termify::Markdown::CodeBlockStyle::NONE)
+    end
+  end
+
+  describe "ownership of the styles passed in" do
+    it "is unaffected by later mutation of the caller's block hash" do
+      blocks = {Termify::Markdown::BlockElement::H1 => Termify::Markdown::BlockStyle.new(bold: true)}
+      sheet = Termify::Markdown::Stylesheet.new(block_styles: blocks)
+      blocks[Termify::Markdown::BlockElement::H1] =
+        Termify::Markdown::BlockStyle.new(italic: true)
+      expect(sheet[Termify::Markdown::BlockElement::H1].bold?).to be_true
+      expect(sheet[Termify::Markdown::BlockElement::H1].italic?).to be_false
+    end
+
+    it "is unaffected by later mutation of the caller's inline hash" do
+      inlines = {Termify::Markdown::InlineElement::Bold => Termify::Markdown::InlineStyle.new(bold: true)}
+      sheet = Termify::Markdown::Stylesheet.new(inline_styles: inlines)
+      inlines.delete(Termify::Markdown::InlineElement::Bold)
+      expect(sheet[Termify::Markdown::InlineElement::Bold].bold?).to be_true
+    end
+
+    it "does not write back into the caller's hash" do
+      blocks = {} of Termify::Markdown::BlockElement => Termify::Markdown::BlockStyle
+      sheet = Termify::Markdown::Stylesheet.new(block_styles: blocks)
+      sheet[Termify::Markdown::BlockElement::H1] =
+        Termify::Markdown::BlockStyle.new(bold: true)
+      expect(blocks).to be_empty
+    end
+
+    it "gives two sheets built from one hash independent entries" do
+      blocks = {Termify::Markdown::BlockElement::H1 => Termify::Markdown::BlockStyle.new(bold: true)}
+      first = Termify::Markdown::Stylesheet.new(block_styles: blocks)
+      second = Termify::Markdown::Stylesheet.new(block_styles: blocks)
+      second[Termify::Markdown::BlockElement::H1] =
+        Termify::Markdown::BlockStyle.new(dim: true)
+      expect(first[Termify::Markdown::BlockElement::H1].bold?).to be_true
+      expect(second[Termify::Markdown::BlockElement::H1].dim?).to be_true
+    end
+
+    it "gives each .default sheet its own entries" do
+      first = Termify::Markdown::Stylesheet.default
+      second = Termify::Markdown::Stylesheet.default
+      second[Termify::Markdown::BlockElement::H1] =
+        Termify::Markdown::BlockStyle.new(strikethrough: true)
+      expect(first[Termify::Markdown::BlockElement::H1].strikethrough?).to be_false
     end
   end
 end

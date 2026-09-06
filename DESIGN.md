@@ -376,6 +376,33 @@ pushed; within a level `increment_counter` counts, and popping back to an outer
 level resumes that level's own count rather than restarting it. Each nested level
 seeds from its own first item, so `7.` indented under `3.` starts at 7.
 
+Both delimiters are accepted, `3.` and `3)`, and both render as a full stop. The
+unordered markers `-`, `*` and `+` are likewise accepted and all render the same.
+The principle is one: **the marker written in the source is input syntax, the
+marker rendered is presentation, and neither determines the other.** Depth chooses
+the bullet, `list_item_prefix` chooses the ordered delimiter, and the author's
+keystroke chooses nothing -- exactly as the written numbers are discarded in
+favour of the counter. CommonMark disagrees on both counts, treating a change of
+delimiter or of bullet marker as the start of a new list; Termify continues one
+list instead. Preserving either distinction would mean carrying the marker on the
+stack beside the counter, which buys a difference few authors intend.
+
+Bullets are `*`, `+`, `-`, cycling by depth, chosen to recede in prominence as
+nesting deepens. The marker is chosen by depth alone; the `ListItem` style's
+`line_prefix` does not supply it, and carries no default. It is still honoured,
+emitted at column zero ahead of the indent, so it reads as a gutter beside the
+marker rather than as part of it -- a change bar or checkbox column. Setting it in
+the hope of replacing the bullet therefore shows both, which is the fastest way to
+learn it is not the knob you wanted. Bullets are deliberately ASCII. The Unicode alternatives are worse
+in a terminal on three counts: `U+2022` and `U+25AA` are drawn for proportional
+text and land small or low against a monospace baseline, they are often pulled
+from a fallback font with different vertical metrics, and every plausible
+candidate carries East Asian Ambiguous width, so a CJK-configured terminal renders
+them double-width and misaligns the line. ASCII punctuation is hinted as a set,
+guaranteed present, and unambiguously one column wide. Termify has no Unicode
+capability detection, so a Unicode bullet set could not be chosen safely even if
+it looked better.
+
 That the counter ignores the written number is deliberate and looks, in isolation,
 exactly like the defect it replaced. The alternative -- printing each number as
 written -- was rejected because it makes the common `1. 1. 1.` idiom render as a
@@ -386,7 +413,10 @@ list of ones.
 ## 10. Code fences
 
 `CodeRenderer` is instantiated when a fence opens, fed one body line at a time, and
-closed at the terminating marker. `@fence_indent` is captured at open so indented
+closed by `close_code_renderer` -- from the terminating marker, or from `reset` if
+the document ends first. Both routes matter: with a highlight theme the body is
+held until close, so a stream cut off mid-fence would otherwise lose its code
+entirely, and silently. `@fence_indent` is captured at open so indented
 fences inside list items can have their body de-indented — and is patched after
 `dispatch_continuation` when the fence opens mid-list, since the continuation line
 was already stripped.
@@ -404,7 +434,59 @@ styled output emitted immediately.
 
 ---
 
-## 11. Terminal and ANSI
+## 11. Gather events
+
+Most markdown renders as it arrives. Two things cannot: a table needs every row
+before it can size its columns, and a highlighted code block needs the whole body
+before it can tokenize. For a large one of either, a streaming caller sees output
+stop, which reads as a hang rather than as work.
+
+`Renderer` therefore takes an optional `on_gather` handler and reports
+`GatherEvent`s while content is held back: one `Started`, zero or more
+`Progressed`, one `Finished`, carrying the kind and a running unit count -- rows
+for a table, lines for a code block.
+
+**Termify does not draw anything.** No spinner, no message, no cursor movement.
+This is deliberate and it is what keeps the feature small: the renderer has no
+idea where its output lands, whether that is a terminal, or where the cursor is,
+whereas the caller knows all three. It also sidesteps localisation, since Termify
+never writes a word of prose, and it sidesteps drawing to a pipe. An earlier
+design had the renderer own a spinner; every problem it ran into -- tty
+detection, escape sequences leaking into redirected output, where to put the
+frame -- was a presentation problem being solved in the wrong place.
+
+Two properties the handler may rely on. **A `Started` is always answered by a
+`Finished`**, including when the caller closes mid-table and when an exception
+unwinds the render; `reset` calls `gather_finished` from an `ensure`, so a caller
+that raised its spinner can always lower it. And **a handler that raises cannot
+break a render**: dispatch is wrapped, because presentation code failing must not
+cost the user their document, nor suppress the `Finished` that takes the spinner
+down.
+
+**Nothing is written between `Started` and `Finished`.** This is the property the
+whole feature turns on, and it is easy to break from either end. A `Finished`
+sent after `TableRenderer.render` tells the caller to erase its spinner from a
+line the table has already been drawn over; `gather_finished` is therefore the
+first statement in `flush_table`, ahead of even `close_block`, and precedes
+`@code_renderer.close` on the fence path, since closing the code renderer is what
+emits a buffered highlighted body. At the other end, a fence's `Started` must
+come *after* `open_block`, not at the opening marker: `open_block` emits the
+block's top margin on the first body line, which would otherwise land under the
+caller's spinner. `gather_started` ignores repeat calls, so the fence path can
+call it once per body line and let the first one win.
+
+Whether a fence reports at all is `CodeRenderer`'s decision, not the renderer's:
+`#buffering?` is true only with a theme, a language, and a lexer tartrazine can
+supply. A fence in a language it does not know -- mermaid, say -- streams as
+plain text and reports nothing, since nothing is held back. Asking the code
+renderer rather than inspecting the stylesheet also means the answer stays right
+as tartrazine's lexer coverage changes. Nested renderers forward the handler, so
+a table inside a blockquote reports like any other -- from the reader's side it
+is still a table that stopped the output.
+
+---
+
+## 12. Terminal and ANSI
 
 `ANSI` holds the sequences and the colour helpers. Its sub-modules — `Cursor`,
 `Screen`, `Clear`, `Mouse` — are **not** included into `ANSI`; callers use
@@ -416,6 +498,14 @@ by `{% if flag?(:linux) || flag?(:darwin) %}`. `TerminalCommon` holds the shared
 behaviour; `UnixTerminal` implements `with_raw_input` via `tcgetattr`/`tcsetattr`,
 `WindowsTerminal` via console modes plus a `FlushConsoleInputBuffer` before yielding
 so queued input cannot corrupt the `\e[6n` cursor-position reply.
+
+Any query of this shape -- write a request, read a reply -- needs a terminal on
+*both* ends, since the request leaves by stdout and the answer arrives on stdin.
+`cursor_row` therefore checks both before asking and returns
+`DEFAULT_CURSOR_ROW` otherwise, and bounds the read besides. A terminal that
+receives the query and declines to answer will still block, because
+`with_raw_input` sets `VMIN` 1 and `VTIME` 0; a real timeout means changing that
+contract, which `SubScroller` also depends on.
 
 `ANSI::SubScroller` constrains output to a fixed-height scroll region: `start`
 reserves lines, queries the cursor row, and sets the region; `stop` restores
@@ -505,6 +595,20 @@ Two rules follow. Any spec that observes a tablo styler must disable the gate
 explicitly (`with_tablo_styling` in the canary specs). And any assertion of the
 form "the collected data is well-formed" needs a companion assertion that data was
 collected at all.
+
+**Symptom: the program produces no output and never exits, but only under CI, a
+pipe, or a redirect.** A terminal query is waiting for a reply that cannot come.
+`\e[6n` leaves by stdout and is answered on stdin, so redirecting *either* one
+strands the read. Check both are ttys before asking, break on `nil` as well as on
+the terminator, and bound the read: `STDIN.read_char` returns `nil` at EOF, which
+never equals the character being waited for.
+
+**Symptom: a blank line appears twice between a list and what follows it.**
+Something wrote `'\n'` to `@io` without setting `@current_line_empty`, so the next
+`open_block` could not tell the output was already on a blank. Every blank line
+must go through the accounting -- `emit_pending_blank` is the pattern. Note this
+had two causes at once: the missing flag, and `exit_list` calling `close_block`,
+which may itself have emitted the blank a moment earlier.
 
 **Symptom: background colour codes look wrong by ten.** `Colorize::ColorANSI` enum
 values *are* the ANSI foreground codes; background is foreground plus ten.
