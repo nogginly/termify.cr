@@ -75,6 +75,18 @@ module Termify
         setup_highlighter
       end
 
+      # True when lines are held back until close rather than emitted as they
+      # arrive. Requires a theme, a language, and a lexer tartrazine can supply
+      # -- a fenced language it does not know streams as plain text. Always
+      # false on the streaming path, which emits each line as it comes.
+      def buffering? : Bool
+        {% if flag?(:streaming_highlight) %}
+          false
+        {% else %}
+          !!(@formatter && @hl_lexer)
+        {% end %}
+      end
+
       # Accumulates a line for highlighted rendering (flushed in close),
       # or emits immediately when highlighting is not active.
       def feed(line : String) : Nil

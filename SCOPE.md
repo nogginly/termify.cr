@@ -28,9 +28,15 @@ why its specs are blocked on a live TTY. Inject `io : IO = STDOUT` at
 `ANSI::Cursor` and `ANSI::Clear` helpers next door, and remove
 `self.write_thinking_chunk`, which belongs to some other application.
 
-**Recover five missing stylesheet specs.** The suite went from 246 examples to 241
-across the spec split; a `str_replace` likely clobbered content in
-`stylesheet_spec.cr`. Compare against repo history.
+**Unterminated code fence loses its body.** `reset` closes the quote renderer and
+flushes tables, but never closes `@code_renderer`. With a highlight theme the code
+renderer buffers until close, so a document ending mid-fence silently drops the
+code. Close it in `reset` alongside the others.
+
+**Report gather progress for line-level assembly.** `GatherEvent` covers tables
+and highlighted code blocks. It does not cover a single long line arriving in
+many chunks, which streams a partial line and reports nothing. Add a kind for it
+only if that pause turns out to be perceptible.
 
 **Widen syntax-highlighting coverage.** Only JavaScript has been exercised
 meaningfully. Test more languages against the buffering path, and consider

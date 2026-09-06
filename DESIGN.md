@@ -431,7 +431,59 @@ styled output emitted immediately.
 
 ---
 
-## 11. Terminal and ANSI
+## 11. Gather events
+
+Most markdown renders as it arrives. Two things cannot: a table needs every row
+before it can size its columns, and a highlighted code block needs the whole body
+before it can tokenize. For a large one of either, a streaming caller sees output
+stop, which reads as a hang rather than as work.
+
+`Renderer` therefore takes an optional `on_gather` handler and reports
+`GatherEvent`s while content is held back: one `Started`, zero or more
+`Progressed`, one `Finished`, carrying the kind and a running unit count -- rows
+for a table, lines for a code block.
+
+**Termify does not draw anything.** No spinner, no message, no cursor movement.
+This is deliberate and it is what keeps the feature small: the renderer has no
+idea where its output lands, whether that is a terminal, or where the cursor is,
+whereas the caller knows all three. It also sidesteps localisation, since Termify
+never writes a word of prose, and it sidesteps drawing to a pipe. An earlier
+design had the renderer own a spinner; every problem it ran into -- tty
+detection, escape sequences leaking into redirected output, where to put the
+frame -- was a presentation problem being solved in the wrong place.
+
+Two properties the handler may rely on. **A `Started` is always answered by a
+`Finished`**, including when the caller closes mid-table and when an exception
+unwinds the render; `reset` calls `gather_finished` from an `ensure`, so a caller
+that raised its spinner can always lower it. And **a handler that raises cannot
+break a render**: dispatch is wrapped, because presentation code failing must not
+cost the user their document, nor suppress the `Finished` that takes the spinner
+down.
+
+**Nothing is written between `Started` and `Finished`.** This is the property the
+whole feature turns on, and it is easy to break from either end. A `Finished`
+sent after `TableRenderer.render` tells the caller to erase its spinner from a
+line the table has already been drawn over; `gather_finished` is therefore the
+first statement in `flush_table`, ahead of even `close_block`, and precedes
+`@code_renderer.close` on the fence path, since closing the code renderer is what
+emits a buffered highlighted body. At the other end, a fence's `Started` must
+come *after* `open_block`, not at the opening marker: `open_block` emits the
+block's top margin on the first body line, which would otherwise land under the
+caller's spinner. `gather_started` ignores repeat calls, so the fence path can
+call it once per body line and let the first one win.
+
+Whether a fence reports at all is `CodeRenderer`'s decision, not the renderer's:
+`#buffering?` is true only with a theme, a language, and a lexer tartrazine can
+supply. A fence in a language it does not know -- mermaid, say -- streams as
+plain text and reports nothing, since nothing is held back. Asking the code
+renderer rather than inspecting the stylesheet also means the answer stays right
+as tartrazine's lexer coverage changes. Nested renderers forward the handler, so
+a table inside a blockquote reports like any other -- from the reader's side it
+is still a table that stopped the output.
+
+---
+
+## 12. Terminal and ANSI
 
 `ANSI` holds the sequences and the colour helpers. Its sub-modules — `Cursor`,
 `Screen`, `Clear`, `Mouse` — are **not** included into `ANSI`; callers use
