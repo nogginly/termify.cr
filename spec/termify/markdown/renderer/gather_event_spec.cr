@@ -63,11 +63,11 @@ Spectator.describe Termify::Markdown::Renderer do
     r = Renderer.new(io, sheet, marker)
     r.feed(text)
     r.close
-    out = io.to_s
-    from = out.index("<S>")
-    to = out.index("<F>")
+    rendered = io.to_s
+    from = rendered.index("<S>")
+    to = rendered.index("<F>")
     return "NO PAIR" if from.nil? || to.nil?
-    out[(from + 3)...to]
+    rendered[(from + 3)...to]
   end
 
   describe "gather events" do
@@ -145,16 +145,16 @@ Spectator.describe Termify::Markdown::Renderer do
     end
 
     it "reports Finished before any of the table is written" do
-      out = transcript_for(GatherPhase::Finished, UNIQUE_TABLE)
-      mark = out.index("<MARK>") || Int32::MAX
-      content = out.index("ZZTOP") || Int32::MIN
+      rendered = transcript_for(GatherPhase::Finished, UNIQUE_TABLE)
+      mark = rendered.index("<MARK>") || Int32::MAX
+      content = rendered.index("ZZTOP") || Int32::MIN
       expect(mark).to be < content
     end
 
     it "reports Started before any of the table is written" do
-      out = transcript_for(GatherPhase::Started, UNIQUE_TABLE)
-      mark = out.index("<MARK>") || Int32::MAX
-      content = out.index("ZZTOP") || Int32::MIN
+      rendered = transcript_for(GatherPhase::Started, UNIQUE_TABLE)
+      mark = rendered.index("<MARK>") || Int32::MAX
+      content = rendered.index("ZZTOP") || Int32::MIN
       expect(mark).to be < content
     end
 
@@ -221,10 +221,10 @@ Spectator.describe Termify::Markdown::Renderer do
     end
 
     it "reports Finished before the highlighted body is written" do
-      out = transcript_for(GatherPhase::Finished,
+      rendered = transcript_for(GatherPhase::Finished,
         "```crystal\nZZTOP = 1\n```\n", highlighted)
-      mark = out.index("<MARK>") || Int32::MAX
-      content = out.index("ZZTOP") || Int32::MIN
+      mark = rendered.index("<MARK>") || Int32::MAX
+      content = rendered.index("ZZTOP") || Int32::MIN
       expect(mark).to be < content
     end
 

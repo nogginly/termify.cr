@@ -145,10 +145,25 @@ module Termify
         process_line(remainder) unless remainder.empty?
         close_quote_renderer
         release_table_candidate
+        close_code_renderer
         flush_table if @block_mode.table?
         close_block(nil)
       ensure
         gather_finished
+      end
+
+      # Closes an open fence and emits whatever the code renderer held back.
+      # Reached from the closing marker and from reset, so a document that ends
+      # mid-fence still gets its code. gather_finished comes first: closing the
+      # code renderer is what writes a buffered highlighted body.
+      private def close_code_renderer : Nil
+        renderer = @code_renderer
+        return if renderer.nil?
+
+        gather_finished
+        renderer.close
+        @code_renderer = nil
+        @block_mode = BlockMode::Normal
       end
 
       # -- private -----------------------------------------------------------
@@ -231,12 +246,7 @@ module Termify
         # into content when a fence opens with leading spaces.
         stripped = (@fence_indent > 0 && line.starts_with?(" " * @fence_indent)) ? line[@fence_indent..] : line
         if stripped.starts_with?(@fence_marker)
-          # Before close: closing the code renderer is what emits a buffered
-          # highlighted body.
-          gather_finished
-          @code_renderer.try(&.close)
-          @code_renderer = nil
-          @block_mode = BlockMode::Normal
+          close_code_renderer
         else
           # After open_block, which emits the block's top margin. Starting the
           # gather before it would put a newline between Started and Finished,

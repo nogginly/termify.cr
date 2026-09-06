@@ -261,4 +261,61 @@ Spectator.describe Termify::Markdown::CodeRenderer do
       expect(plain).to contain("open comment")
     end
   end
+
+  describe "#buffering?" do
+    it "is false without a highlight theme" do
+      cr, _ = make_renderer(language: "javascript")
+      expect(cr.buffering?).to be_false
+    end
+
+    it "is false without a language" do
+      style = CodeBlockStyle.new(highlight_theme: "default-dark")
+      cr, _ = make_renderer(style: style)
+      expect(cr.buffering?).to be_false
+    end
+
+    it "is true with a theme and a known language" do
+      style = CodeBlockStyle.new(highlight_theme: "default-dark")
+      cr, _ = make_renderer(language: "javascript", style: style)
+      expect(cr.buffering?).to be_true
+    end
+  end
+
+  # A document cut off mid-fence -- a stream that ended early -- still has a
+  # buffered body. Discarding it loses the user's content silently.
+  describe "unterminated fence" do
+    def highlighted_sheet : Stylesheet
+      Stylesheet.new({:code_block => {highlight_theme: "default-dark"}},
+        merge: Stylesheet.default)
+    end
+
+    def render_markdown(text : String, sheet : Stylesheet) : String
+      io = IO::Memory.new
+      r = Renderer.new(io, sheet)
+      r.feed(text)
+      r.close
+      io.to_s.gsub(/\e\[[0-9;]*m/, "")
+    end
+
+    it "emits the body of a highlighted fence that never closes" do
+      rendered = render_markdown("```javascript\nvar zztop = 1;\n", highlighted_sheet)
+      expect(rendered).to contain("zztop")
+    end
+
+    it "emits every line of an unterminated fence" do
+      rendered = render_markdown("```javascript\nvar aa = 1;\nvar bb = 2;\n", highlighted_sheet)
+      expect(rendered).to contain("aa")
+      expect(rendered).to contain("bb")
+    end
+
+    it "still emits a closed fence, unchanged" do
+      rendered = render_markdown("```javascript\nvar zztop = 1;\n```\n", highlighted_sheet)
+      expect(rendered).to contain("zztop")
+    end
+
+    it "emits the body when the fence is unterminated and unhighlighted" do
+      rendered = render_markdown("```javascript\nvar zztop = 1;\n", Stylesheet.default)
+      expect(rendered).to contain("zztop")
+    end
+  end
 end

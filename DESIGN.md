@@ -413,7 +413,10 @@ list of ones.
 ## 10. Code fences
 
 `CodeRenderer` is instantiated when a fence opens, fed one body line at a time, and
-closed at the terminating marker. `@fence_indent` is captured at open so indented
+closed by `close_code_renderer` -- from the terminating marker, or from `reset` if
+the document ends first. Both routes matter: with a highlight theme the body is
+held until close, so a stream cut off mid-fence would otherwise lose its code
+entirely, and silently. `@fence_indent` is captured at open so indented
 fences inside list items can have their body de-indented — and is patched after
 `dispatch_continuation` when the fence opens mid-list, since the continuation line
 was already stripped.
