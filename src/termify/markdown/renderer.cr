@@ -171,7 +171,6 @@ module Termify
       end
 
       # Handles a line while in CodeFence mode. Returns true if consumed.
-      # Handles a line while in CodeFence mode. Returns true if consumed.
       # When inside a list, strips the item's content indent before checking
       # the fence marker so indented fences work correctly.
       private def process_fence_line(line : String) : Bool
@@ -327,12 +326,12 @@ module Termify
         end
       end
 
-      # Renders buffered rows via TableRenderer and resets table state.
       # Returns leading spaces matching current list content indent, or "".
       private def list_visual_indent : String
         @list_stack.empty? ? "" : " " * @list_stack.last[:content_indent]
       end
 
+      # Renders buffered rows via TableRenderer and resets table state.
       private def flush_table : Nil
         close_block(nil)
         unless @table_rows.empty?
@@ -392,13 +391,17 @@ module Termify
         @quote_renderer = Renderer.new(wrapped_io, @stylesheet)
       end
 
+      # True when the last line written was blank. A parent renderer reads this
+      # from its closing child so margin accounting survives the handover.
+      protected getter? current_line_empty : Bool
+
       # Closes and flushes the child renderer, syncing blank-line state back
       # to the parent so margin logic stays correct for the next block.
       private def close_quote_renderer : Nil
         if r = @quote_renderer
           r.close
           @quote_renderer = nil
-          @current_line_empty = r.@current_line_empty
+          @current_line_empty = r.current_line_empty?
         end
       end
 
@@ -584,7 +587,7 @@ module Termify
         dispatch_block(line)
       end
 
-      # Updates the list nesting stack for a new item at *indent*.
+      # Emits one item: parses the line, updates nesting, renders the content.
       private def process_list_item(line : String) : Nil
         indent, ordered, content, content_indent, number = parse_list_line(line)
         update_list_stack(indent, ordered, content_indent, number)
