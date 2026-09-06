@@ -39,7 +39,7 @@ at_exit { term.restore_console }
 ```crystal
 Termify.render_markdown do |io|
   io.puts "# Hello"
-  io << "_Hello_, **World!**
+  io.puts "_Hello_, **World!**"
 end
 ```
 
