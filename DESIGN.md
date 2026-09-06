@@ -388,7 +388,12 @@ list instead. Preserving either distinction would mean carrying the marker on th
 stack beside the counter, which buys a difference few authors intend.
 
 Bullets are `*`, `+`, `-`, cycling by depth, chosen to recede in prominence as
-nesting deepens. They are deliberately ASCII. The Unicode alternatives are worse
+nesting deepens. The marker is chosen by depth alone; the `ListItem` style's
+`line_prefix` does not supply it, and carries no default. It is still honoured,
+emitted at column zero ahead of the indent, so it reads as a gutter beside the
+marker rather than as part of it -- a change bar or checkbox column. Setting it in
+the hope of replacing the bullet therefore shows both, which is the fastest way to
+learn it is not the knob you wanted. Bullets are deliberately ASCII. The Unicode alternatives are worse
 in a terminal on three counts: `U+2022` and `U+25AA` are drawn for proportional
 text and land small or low against a monospace baseline, they are often pulled
 from a fallback font with different vertical metrics, and every plausible

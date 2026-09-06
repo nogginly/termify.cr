@@ -223,6 +223,40 @@ Spectator.describe Termify::Markdown::Renderer do
       end
     end
 
+    describe "list item line_prefix" do
+      def render_with_prefix(text : String, prefix : String) : String
+        sheet = Stylesheet.default
+        sheet[BlockElement::ListItem] = BlockStyle.new(line_prefix: prefix)
+        io = IO::Memory.new
+        r = Renderer.new(io, stylesheet: sheet)
+        r.feed(text)
+        r.close
+        io.to_s
+      end
+
+      it "emits the prefix ahead of the marker" do
+        output = render_with_prefix("- one\n", "| ")
+        expect(output).to contain("| * one")
+      end
+
+      it "emits the prefix ahead of the indent when nested" do
+        output = render_with_prefix("- one\n  - two\n", "| ")
+        lines = output.split('\n').reject(&.empty?)
+        expect(lines[1]).to contain("|   + two")
+      end
+
+      it "emits nothing extra when no prefix is set" do
+        output = render_block("- one\n")
+        lines = output.split('\n').reject(&.empty?)
+        expect(lines[0].lstrip).to start_with("* one")
+      end
+
+      it "emits the prefix on ordered items too" do
+        output = render_with_prefix("1. one\n", "| ")
+        expect(output).to contain("| 1. one")
+      end
+    end
+
     describe "mixed ordered and unordered" do
       it "renders an ordered list nested inside an unordered list" do
         output = render_block("- item\n  1. ordered nested\n")
@@ -394,6 +428,29 @@ Spectator.describe Termify::Markdown::Renderer do
         output = io.to_s
         # List visual indent (3 spaces for "1. ") must precede the blockquote prefix
         expect(output.lines.select { |l| l.includes?("quoted") }.first).to match(/^\s+\| quoted/)
+      end
+
+      it "composes the blockquote prefix ahead of the list item prefix" do
+        sheet = Stylesheet.new({:list_item => {line_prefix: "# "}},
+          merge: Stylesheet.default)
+        io = IO::Memory.new
+        r = Renderer.new(io, sheet)
+        r.feed("> - item\n")
+        r.close
+        plain = io.to_s.gsub(/\e\[[0-9;]*m/, "")
+        expect(plain).to contain("| # * item")
+      end
+
+      it "keeps the gutter aligned as the quoted list nests" do
+        sheet = Stylesheet.new({:list_item => {line_prefix: "# "}},
+          merge: Stylesheet.default)
+        io = IO::Memory.new
+        r = Renderer.new(io, sheet)
+        r.feed("> - one\n>   - two\n")
+        r.close
+        plain = io.to_s.gsub(/\e\[[0-9;]*m/, "")
+        expect(plain).to contain("| # * one")
+        expect(plain).to contain("| #   + two")
       end
 
       it "renders a blockquote with its own nested list inside a list item" do

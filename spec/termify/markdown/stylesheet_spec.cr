@@ -127,8 +127,8 @@ Spectator.describe Termify::Markdown::Stylesheet do
       expect(s.fg).not_to be_nil
     end
 
-    it "ListItem has a line_prefix" do
-      expect(sheet[Termify::Markdown::BlockElement::ListItem].line_prefix).not_to be_nil
+    it "ListItem carries no line_prefix -- the marker comes from depth" do
+      expect(sheet[Termify::Markdown::BlockElement::ListItem].line_prefix).to be_nil
     end
 
     it "HtmlTag has a fg colour" do

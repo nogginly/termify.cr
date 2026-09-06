@@ -646,14 +646,17 @@ module Termify
         end
       end
 
-      # Emits one list item using ListItem stylesheet style but a dynamic prefix.
+      # Emits one list item. The marker comes from depth, not from the
+      # stylesheet; line_prefix is honoured ahead of it, at column zero, so it
+      # reads as a gutter beside the indented marker rather than part of it.
       private def emit_list_item(content : String, list_prefix : String) : Nil
         open_block(BlockElement::ListItem)
         style = @stylesheet[BlockElement::ListItem]
         ansi = style.to_ansi
+        prefix = style.line_prefix || ""
         erase = (style.bg && !ansi.empty?) ? ANSI::ERASE_LINE : ""
         reset = ansi.empty? ? "" : ANSI::RESET
-        @io << ansi << list_prefix << @inline.render(content, style) << erase << reset << (style.line_suffix || "") << '\n'
+        @io << ansi << prefix << list_prefix << @inline.render(content, style) << erase << reset << (style.line_suffix || "") << '\n'
         @current_line_empty = false
       end
     end

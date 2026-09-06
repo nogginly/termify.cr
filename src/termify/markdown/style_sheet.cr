@@ -193,7 +193,7 @@ module Termify
             BlockElement::Blockquote     => BlockStyle.new(line_prefix: "| "),
             BlockElement::CodeBlock      => CodeBlockStyle.new(fg: Colorize::ColorANSI::White, bg: Colorize::ColorANSI::DarkGray),
             BlockElement::HorizontalRule => BlockStyle.new(dim: true),
-            BlockElement::ListItem       => BlockStyle.new(line_prefix: "* "),
+            BlockElement::ListItem       => BlockStyle::NONE,
             BlockElement::BlockHtml      => BlockStyle.new(fg: Colorize::ColorANSI::Red),
             BlockElement::Table          => BlockStyle::NONE,
           } of BlockElement => BlockStyle,
