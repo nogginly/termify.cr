@@ -92,17 +92,17 @@ line_delay = FAST
 handler = ->(event : Termify::Markdown::GatherEvent) {
   # puts "<#{event.phase}>"
   case event.phase
-  when .started?
+  in .started?
     progress.label = case event.kind
                      in .table?      then "gathering table"
                      in .code_block? then "gathering code"
                      end
     line_delay = SLOW
     progress.start
-  when .finished?
+  in .finished?
     progress.stop
     line_delay = FAST
-  when .progressed?
+  in .progressed?
     progress.lines = event.units
   end
 }
