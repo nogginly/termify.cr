@@ -1,17 +1,5 @@
 module Termify
-  module TerminalCommon
-    # Setup console terminal mode; does nothing on *nix platforms
-    # but is needed for Windows
-    def setup_console; end
-
-    # Restore console (after setup); does nothing on *nix platforms
-    # but is needed for Windows
-    def restore_console; end
-
-    # Temporarily switch input to raw + VT mode, yield, then restore input mode.
-    # Output mode is left as-is (already set up by setup_console).
-    abstract def with_raw_input(&)
-
+  class Terminal
     # Row reported when the terminal cannot be asked, or answers unintelligibly.
     DEFAULT_CURSOR_ROW = 1
 

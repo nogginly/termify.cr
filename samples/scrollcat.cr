@@ -7,7 +7,7 @@ term = Termify.terminal
 term.setup_console
 at_exit { term.restore_console }
 
-subscroll = Termify::ANSI::SubScroller.new(term, height)
+subscroll = Termify::SubScroller.new(term, height)
 puts "┌─────── Sub-scroller (#{height} lines) ───────────────"
 subscroll.start
 File.each_line(file_to_read, chomp: false) do |line|

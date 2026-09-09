@@ -1,9 +1,9 @@
+{% if flag?(:linux) || flag?(:darwin) %}
 require "lib_c"
 
 module Termify
-  class UnixTerminal
-    include TerminalCommon
-
+  # Add UNIX characteristics
+  class Terminal
     {% if flag?(:linux) %}
       VMIN  = 6
       VTIME = 5
@@ -11,6 +11,14 @@ module Termify
       VMIN  = 16
       VTIME = 17
     {% end %}
+
+    # Setup console terminal mode; does nothing on *nix platforms
+    # but is needed for Windows
+    def setup_console; end
+
+    # Restore console (after setup); does nothing on *nix platforms
+    # but is needed for Windows
+    def restore_console; end
 
     # Temporarily switch input to raw + VT mode, yield, then restore input mode.
     # Output mode is left as-is (already set up by setup_console).
@@ -34,6 +42,5 @@ module Termify
       end
     end
   end
-
-  alias Terminal = UnixTerminal
 end
+{% end %}

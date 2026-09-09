@@ -1,6 +1,7 @@
-require "./termify/*"
-require "./termify/markdown/*"
-require "./termify/tui/*"
+require "./termify/ansi"
+require "./termify/terminal"
+require "./termify/sub_scroller"
+require "./termify/markdown/renderer"
 
 module Termify
   # Render Markdown to an ANSI-compatible terminal via the given `io`

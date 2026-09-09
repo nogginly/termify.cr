@@ -1,4 +1,6 @@
-module Termify::ANSI
+require "./terminal"
+
+module Termify
   class SubScroller
     getter term : Terminal
     getter lines : Int32
