@@ -1,6 +1,6 @@
 require "./termify/ansi"
 require "./termify/terminal"
-require "./termify/sub_scroller"
+require "./termify/scroll_region"
 require "./termify/markdown/renderer"
 
 module Termify

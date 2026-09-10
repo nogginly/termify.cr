@@ -4,7 +4,7 @@ require "./terminal"
 module Termify
   # Confines output to a fixed-height region of the terminal, so that streaming
   # text scrolls within it while the rest of the screen stays put.
-  class SubScroller
+  class ScrollRegion
     getter term : Terminal
     getter lines : Int32
 
@@ -17,12 +17,12 @@ module Termify
       @top_row = -1
     end
 
-    # Return true if sub-scroller is active (i.e. started, not yet stopped)
+    # Return true if the region is active (i.e. started, not yet stopped)
     def active?
       top_row.positive?
     end
 
-    # Setup the sub-scroll region and place the cursor at top row within it.
+    # Setup the scroll region and place the cursor at top row within it.
     # All subsequent output will scroll within the region.
     def start
       io = term.output
@@ -39,7 +39,7 @@ module Termify
       io.flush
     end
 
-    # Stop using the sub-scroll region, undo the scroll constraint, and
+    # Stop using the scroll region, undo the scroll constraint, and
     # place the cursor at the top or after the bottom of the region
     # based on `top` parameter which defaults to `false` for bottom.
     def stop(top = false)

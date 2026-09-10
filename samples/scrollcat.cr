@@ -7,9 +7,9 @@ term = Termify.terminal
 term.setup_console
 at_exit { term.restore_console }
 
-subscroll = Termify::SubScroller.new(term, height)
-puts "┌─────── Sub-scroller (#{height} lines) ───────────────"
-subscroll.start
+region = Termify::ScrollRegion.new(term, height)
+puts "┌─────── Scroll region (#{height} lines) ───────────────"
+region.start
 File.each_line(file_to_read, chomp: false) do |line|
   line.split(' ').each do |phrase|
     print phrase, ' '
@@ -17,6 +17,6 @@ File.each_line(file_to_read, chomp: false) do |line|
     sleep(10.milliseconds)
   end
 end
-subscroll.stop
+region.stop
 puts "└─────────────────────────────────────────"
 puts

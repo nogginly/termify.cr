@@ -11,46 +11,46 @@ private class ScriptedTerminal < Termify::Terminal
   end
 end
 
-Spectator.describe Termify::SubScroller do
+Spectator.describe Termify::ScrollRegion do
   describe "#initialize" do
     it "clamps a height below the minimum" do
-      scroller = Termify::SubScroller.new(ScriptedTerminal.at_row(1), 1)
-      expect(scroller.lines).to eq(3)
+      region = Termify::ScrollRegion.new(ScriptedTerminal.at_row(1), 1)
+      expect(region.lines).to eq(3)
     end
 
     it "clamps a height above the maximum" do
-      scroller = Termify::SubScroller.new(ScriptedTerminal.at_row(1), 99)
-      expect(scroller.lines).to eq(10)
+      region = Termify::ScrollRegion.new(ScriptedTerminal.at_row(1), 99)
+      expect(region.lines).to eq(10)
     end
 
     it "is not active before starting" do
-      scroller = Termify::SubScroller.new(ScriptedTerminal.at_row(1), 5)
-      expect(scroller.active?).to be_false
+      region = Termify::ScrollRegion.new(ScriptedTerminal.at_row(1), 5)
+      expect(region.active?).to be_false
     end
   end
 
   describe "#start" do
     it "reserves the region, queries the row, then confines scrolling to it" do
       written = IO::Memory.new
-      scroller = Termify::SubScroller.new(ScriptedTerminal.at_row(12, written), 3)
+      region = Termify::ScrollRegion.new(ScriptedTerminal.at_row(12, written), 3)
 
-      scroller.start
+      region.start
 
       expect(written.to_s).to eq("\n\n\n\e[3A\e[6n\e[12;14r\e[12;1H")
     end
 
     it "becomes active" do
-      scroller = Termify::SubScroller.new(ScriptedTerminal.at_row(12), 3)
-      scroller.start
-      expect(scroller.active?).to be_true
+      region = Termify::ScrollRegion.new(ScriptedTerminal.at_row(12), 3)
+      region.start
+      expect(region.active?).to be_true
     end
 
     it "falls back to the default row when the reply is unintelligible" do
       written = IO::Memory.new
       term = ScriptedTerminal.new(IO::Memory.new("nonsense"), written)
-      scroller = Termify::SubScroller.new(term, 3)
+      region = Termify::ScrollRegion.new(term, 3)
 
-      scroller.start
+      region.start
 
       expect(written.to_s).to end_with("\e[1;3r\e[H")
     end
@@ -59,31 +59,31 @@ Spectator.describe Termify::SubScroller do
   describe "#stop" do
     it "restores full screen scrolling and moves below the region" do
       written = IO::Memory.new
-      scroller = Termify::SubScroller.new(ScriptedTerminal.at_row(12, written), 3)
-      scroller.start
+      region = Termify::ScrollRegion.new(ScriptedTerminal.at_row(12, written), 3)
+      region.start
       written.clear
 
-      scroller.stop
+      region.stop
 
       expect(written.to_s).to eq("\e[r\e[15;1H")
     end
 
     it "moves to the top of the region when asked" do
       written = IO::Memory.new
-      scroller = Termify::SubScroller.new(ScriptedTerminal.at_row(12, written), 3)
-      scroller.start
+      region = Termify::ScrollRegion.new(ScriptedTerminal.at_row(12, written), 3)
+      region.start
       written.clear
 
-      scroller.stop(top: true)
+      region.stop(top: true)
 
       expect(written.to_s).to eq("\e[r\e[12;1H")
     end
 
     it "is no longer active" do
-      scroller = Termify::SubScroller.new(ScriptedTerminal.at_row(12), 3)
-      scroller.start
-      scroller.stop
-      expect(scroller.active?).to be_false
+      region = Termify::ScrollRegion.new(ScriptedTerminal.at_row(12), 3)
+      region.start
+      region.stop
+      expect(region.active?).to be_false
     end
   end
 end

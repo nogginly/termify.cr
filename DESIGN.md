@@ -518,16 +518,16 @@ with yes must not thereby put the real terminal into raw mode. `cursor_row`
 returns `DEFAULT_CURSOR_ROW` when ungated, and bounds the read besides. A terminal that
 receives the query and declines to answer will still block, because
 `with_raw_input` sets `VMIN` 1 and `VTIME` 0; a real timeout means changing that
-contract, which `SubScroller` also depends on.
+contract, which `ScrollRegion` also depends on.
 
-`SubScroller` constrains output to a fixed-height scroll region: `start`
+`ScrollRegion` constrains output to a fixed-height scroll region: `start`
 reserves lines, queries the cursor row, and sets the region; `stop` restores
 full-screen scrolling. Height is clamped to 3..10.
 
 It sits beside `Terminal` rather than inside `ANSI` because it depends on
 `Terminal`, and `ANSI` sits below `Terminal`, not above it. The layering is
 `ANSI` (constants and pure functions, no terminal present), then `Terminal` and
-`SubScroller` (stateful, talk to a real device), then anything built on those.
+`ScrollRegion` (stateful, talk to a real device), then anything built on those.
 `Markdown` uses `ANSI` alone.
 
 ---
