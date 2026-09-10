@@ -2,6 +2,7 @@ require "../style"
 
 module Termify
   module Markdown
+    # :nodoc:
     # Style for block elements. Adds line_prefix, line_suffix, newline_before, newline_after.
     # merge returns BlockStyle; == includes all layout fields.
     class BlockStyle < Style

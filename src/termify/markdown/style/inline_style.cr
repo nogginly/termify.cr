@@ -2,6 +2,7 @@ require "../style"
 
 module Termify
   module Markdown
+    # :nodoc:
     # Style for inline elements. No additional fields beyond Style.
     # merge returns InlineStyle.
     class InlineStyle < Style

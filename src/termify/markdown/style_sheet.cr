@@ -2,6 +2,7 @@ require "./style"
 
 module Termify
   module Markdown
+    # :nodoc:
     # Block-level markdown elements. Styled via BlockStyle entries in Stylesheet.
     enum BlockElement
       H1
@@ -19,6 +20,7 @@ module Termify
       Table
     end
 
+    # :nodoc:
     # Inline markdown elements. Styled via Style entries in Stylesheet.
     enum InlineElement
       Bold
@@ -29,6 +31,7 @@ module Termify
       HtmlTag
     end
 
+    # :nodoc:
     # Maps block and inline elements to their styles independently.
     # Missing entries fall back to Style::NONE.
     # Use .default for the built-in theme, or .new for a blank slate.

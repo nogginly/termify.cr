@@ -8,7 +8,7 @@ module Termify
     #
     # @at_line_start tracks whether the next character begins a new line.
     # Every line, including blank lines, receives both prefix and suffix.
-    class BlockquoteIO < IO
+    private class BlockquoteIO < IO
       def initialize(@io : IO, @prefix : String, @suffix : String = "")
         @at_line_start = true
       end
