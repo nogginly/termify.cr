@@ -33,4 +33,4 @@ actions:
     command: crystal spec -Dtest
     description: Run all tests (spectator)
   test:
-    command: ops test_specs && ops lint
+    command: ops test_specs && ops lint && ops build
