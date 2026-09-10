@@ -5,7 +5,7 @@ module Termify
   module Markdown
     # Renders a 2-D array of String cells as a terminal table via Tablo.
     # First row is treated as the header; remaining rows are data rows.
-    class TableRenderer
+    private class TableRenderer
       enum ColumnAlignment
         Left
         Right

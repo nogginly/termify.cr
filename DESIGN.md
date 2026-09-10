@@ -493,23 +493,42 @@ is still a table that stopped the output.
 `ANSI::Cursor.up(3)`. Method names omit a redundant prefix because the module
 already supplies the context.
 
-`Termify.terminal` memoises a platform-specific singleton, selected at compile time
-by `{% if flag?(:linux) || flag?(:darwin) %}`. `TerminalCommon` holds the shared
-behaviour; `UnixTerminal` implements `with_raw_input` via `tcgetattr`/`tcsetattr`,
-`WindowsTerminal` via console modes plus a `FlushConsoleInputBuffer` before yielding
-so queued input cannot corrupt the `\e[6n` cursor-position reply.
+`Terminal` is one class, not a hierarchy. `terminal.cr` holds the platform-neutral
+behaviour and then requires exactly one of `terminal/unix.cr` or
+`terminal/windows.cr`, chosen at compile time; each reopens the class and adds what
+its platform needs. `with_raw_input` arrives from `tcgetattr`/`tcsetattr` on Unix,
+and on Windows from console modes plus a `FlushConsoleInputBuffer` before yielding
+so queued input cannot corrupt the `\e[6n` cursor-position reply. A target that is
+neither raises at compile time.
+
+`Termify.terminal` memoises a singleton of that class.
+
+`Terminal` owns an `input`/`output` pair, defaulting to `STDIN`/`STDOUT` and
+supplied at construction. Everything built on it writes through `output` rather
+than reaching for `STDOUT`, which is what stops a caller and its terminal
+addressing different devices.
 
 Any query of this shape -- write a request, read a reply -- needs a terminal on
-*both* ends, since the request leaves by stdout and the answer arrives on stdin.
-`cursor_row` therefore checks both before asking and returns
-`DEFAULT_CURSOR_ROW` otherwise, and bounds the read besides. A terminal that
+*both* ends, since the request leaves by the output and the answer arrives on the
+input. `interactive?` is that condition, named once and asked by `cursor_row`
+before it writes anything; overriding it is how a spec reaches the reply parsing
+with both ends in memory. Raw mode is gated separately, on whether the input is
+a file descriptor attached to a tty, because a spec that answers `interactive?`
+with yes must not thereby put the real terminal into raw mode. `cursor_row`
+returns `DEFAULT_CURSOR_ROW` when ungated, and bounds the read besides. A terminal that
 receives the query and declines to answer will still block, because
 `with_raw_input` sets `VMIN` 1 and `VTIME` 0; a real timeout means changing that
-contract, which `SubScroller` also depends on.
+contract, which `ScrollRegion` also depends on.
 
-`ANSI::SubScroller` constrains output to a fixed-height scroll region: `start`
+`ScrollRegion` constrains output to a fixed-height scroll region: `start`
 reserves lines, queries the cursor row, and sets the region; `stop` restores
 full-screen scrolling. Height is clamped to 3..10.
+
+It sits beside `Terminal` rather than inside `ANSI` because it depends on
+`Terminal`, and `ANSI` sits below `Terminal`, not above it. The layering is
+`ANSI` (constants and pure functions, no terminal present), then `Terminal` and
+`ScrollRegion` (stateful, talk to a real device), then anything built on those.
+`Markdown` uses `ANSI` alone.
 
 ---
 
@@ -553,9 +572,14 @@ newline is unmatched in the current lexer state, the fallback resets
 not a bare `raise`, for compile-time errors. Bare `raise` in a macro branch is
 runtime code and surfaces at program start instead.
 
-**Symptom: a `WindowsTerminal` override is silently ignored.** Methods intended for
-override must be instance methods, not class methods — `color_supported?` was
-originally a class method and inheritance did not apply.
+**Symptom: a Windows override of a `Terminal` method is silently ignored, or
+`previous_def` fails to find anything.** The platform files reopen the same class
+rather than subclassing it, so an override replaces the earlier definition and
+reaches the original only through `previous_def`. That works solely because
+`terminal.cr` defines the method before requiring the platform file; reorder the
+requires and the override becomes the only definition, with no warning. The
+methods must also be instance methods -- `color_supported?` was originally a class
+method, back when this was inheritance, and the override did nothing at all.
 
 **Symptom: a spec comparing rendered output fails on a trailing newline.**
 Crystal's `String#lines` strips trailing newlines. Do not compare against a

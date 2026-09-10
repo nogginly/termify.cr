@@ -2,6 +2,7 @@ require "./style_sheet"
 
 module Termify
   module Markdown
+    # :nodoc:
     # Renders Markdown inline markup -- code spans, HTML tags, links, bold,
     # italic and strikethrough -- into ANSI-styled text.
     #

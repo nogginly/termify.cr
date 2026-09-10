@@ -7,6 +7,7 @@ require "./inline_renderer"
 
 module Termify
   module Markdown
+    # :nodoc:
     enum BlockMode
       Normal
       CodeFence

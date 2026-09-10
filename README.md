@@ -34,6 +34,25 @@ term.setup_console
 at_exit { term.restore_console }
 ```
 
+`Terminal` stands on its own. It needs nothing from the Markdown renderer, so a
+plain CLI tool can use it, and the `ScrollRegion` below, without rendering any
+Markdown at all.
+
+### Scrolling within part of the screen
+
+`ScrollRegion` confines output to a fixed number of lines, so streaming text
+scrolls within them while the rest of the screen stays put. Height is clamped
+to 3..10.
+
+```crystal
+region = Termify::ScrollRegion.new(term, 5)
+region.start
+# ... anything printed now scrolls within those 5 lines
+region.stop
+```
+
+See [`scrollcat`](./samples/scrollcat.cr) for a working example.
+
 ### Rendering Markdown
 
 ```crystal

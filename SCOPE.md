@@ -21,13 +21,6 @@ Nothing outstanding.
 
 ## Will fix
 
-**Make `SubScroller` testable.** It writes with bare `print` to `STDOUT`, which is
-why its specs are blocked on a live TTY. Inject `io : IO = STDOUT` at
-`initialize`; `start`/`stop` then assert against an `IO::Memory` with only
-`cursor_row` stubbed. While in there: replace the hand-rolled escapes with the
-`ANSI::Cursor` and `ANSI::Clear` helpers next door, and remove
-`self.write_thinking_chunk`, which belongs to some other application.
-
 **Report gather progress for line-level assembly.** `GatherEvent` covers tables
 and highlighted code blocks. It does not cover a single long line arriving in
 many chunks, which streams a partial line and reports nothing. Add a kind for it

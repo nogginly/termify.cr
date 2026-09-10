@@ -1,5 +1,6 @@
 module Termify
   module Markdown
+    # :nodoc:
     # SGR attribute flags. Included by all style types.
     module SGRProperties
       getter? bold : Bool
@@ -9,12 +10,14 @@ module Termify
       getter? strikethrough : Bool
     end
 
+    # :nodoc:
     # fg/bg color attributes. Included by all style types.
     module ColorProperties
       getter fg : ANSI::Color?
       getter bg : ANSI::Color?
     end
 
+    # :nodoc:
     # Per-line and per-block decoration for block elements only.
     # line_prefix/line_suffix -- prepended/appended on every rendered line.
     # newline_before/newline_after -- emit one blank line before/after the

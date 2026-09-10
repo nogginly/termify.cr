@@ -2,6 +2,7 @@ require "../style"
 
 module Termify
   module Markdown
+    # :nodoc:
     # Style for code blocks. Extends BlockStyle with code-specific properties.
     # line_number_format: sprintf format string for gutters (e.g. "%3d | ").
     #   nil means no line numbers.

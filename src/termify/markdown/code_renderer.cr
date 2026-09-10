@@ -12,6 +12,7 @@ require "tartrazine"
 # dot_all regex spanning multiple lines. The default buffering path is correct
 # for all lexers; this path exists for experimentation only.
 {% if flag?(:streaming_highlight) %}
+  # :nodoc:
   module Tartrazine
     class Ansi
       # Format a single line, resuming state from prev_tokenizer when provided.
@@ -56,7 +57,7 @@ module Termify
     #
     # When no highlight_theme is set or language is empty, both paths emit
     # plain styled output immediately without buffering.
-    class CodeRenderer
+    private class CodeRenderer
       getter language : String
 
       def initialize(

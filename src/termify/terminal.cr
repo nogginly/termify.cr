@@ -1,17 +1,5 @@
 module Termify
-  module TerminalCommon
-    # Setup console terminal mode; does nothing on *nix platforms
-    # but is needed for Windows
-    def setup_console; end
-
-    # Restore console (after setup); does nothing on *nix platforms
-    # but is needed for Windows
-    def restore_console; end
-
-    # Temporarily switch input to raw + VT mode, yield, then restore input mode.
-    # Output mode is left as-is (already set up by setup_console).
-    abstract def with_raw_input(&)
-
+  class Terminal
     # Row reported when the terminal cannot be asked, or answers unintelligibly.
     DEFAULT_CURSOR_ROW = 1
 
@@ -22,20 +10,32 @@ module Termify
     # The row field of a cursor position report.
     private CURSOR_REPORT = /\[(\d+);/
 
+    # Where queries are written and replies are read. Everything built on
+    # `Terminal` writes through `output` rather than reaching for `STDOUT`,
+    # so a caller and its terminal cannot address different devices.
+    getter input : IO
+    getter output : IO
+
+    # True when both ends are a terminal, and so when a query may be asked at
+    # all. Overriding this is how a spec reaches the code beyond the gate.
+    def interactive? : Bool
+      input.tty? && output.tty?
+    end
+
     # Return the row number of the cursor's current position.
     #
-    # Asking requires a terminal on both ends: the query goes to stdout and the
-    # reply arrives on stdin. Where either is redirected there is nobody to
-    # answer, so this returns `DEFAULT_CURSOR_ROW` rather than waiting.
+    # Asking requires a terminal on both ends: the query goes to the output and
+    # the reply arrives on the input. Where either is redirected there is nobody
+    # to answer, so this returns `DEFAULT_CURSOR_ROW` rather than waiting.
     def cursor_row : Int32
-      return DEFAULT_CURSOR_ROW unless STDIN.tty? && STDOUT.tty?
+      return DEFAULT_CURSOR_ROW unless interactive?
 
       with_raw_input do
-        print "\e[6n"
-        STDOUT.flush
+        output << "\e[6n"
+        output.flush
         response = String.build do |str_io|
           READ_LIMIT.times do
-            char = STDIN.read_char
+            char = input.read_char
             break if char.nil? || char == 'R'
             str_io << char
           end
@@ -62,8 +62,8 @@ module Termify
       ENV["COLORTERM"]?.try { |value| value == "truecolor" || value == "24bit" } || false
     end
 
-    # Private constructor
-    protected def initialize; end
+    def initialize(@input : IO = STDIN, @output : IO = STDOUT)
+    end
   end
 end
 

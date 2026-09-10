@@ -7,6 +7,7 @@ require "./style/properties"
 
 module Termify
   module Markdown
+    # :nodoc:
     # Base style -- SGR flags + colors. Parent of BlockStyle and InlineStyle.
     # Not constructed directly in normal use; instantiate a concrete subclass.
     #
