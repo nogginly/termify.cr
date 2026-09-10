@@ -1,12 +1,17 @@
+require "./ansi"
 require "./terminal"
 
 module Termify
+  # Confines output to a fixed-height region of the terminal, so that streaming
+  # text scrolls within it while the rest of the screen stays put.
   class SubScroller
     getter term : Terminal
     getter lines : Int32
 
     private getter top_row : Int32
 
+    # Height is clamped to the useful range; below three the region cannot show
+    # movement, and above ten it stops reading as a subordinate area.
     def initialize(@term, height : Int32)
       @lines = height.clamp(3, 10)
       @top_row = -1
@@ -20,36 +25,28 @@ module Termify
     # Setup the sub-scroll region and place the cursor at top row within it.
     # All subsequent output will scroll within the region.
     def start
-      # Reserve lines below current position
-      print "\n" * lines
-      print "\e[#{lines}A" # move back up
-      STDOUT.flush
+      io = term.output
 
-      # Constrain scroll region
+      # Reserve the region's lines below the cursor, then return to where it was
+      io << "\n" * lines
+      io << ANSI::Cursor.up(lines)
+      io.flush
+
+      # Ask where that left us, and confine scrolling from there
       top = @top_row = term.cursor_row
-      bot = top + lines - 1
-      print "\e[#{top};#{bot}r"
-      # Move to top of scroll region
-      print "\e[#{top};1H"
-      STDOUT.flush
-    end
-
-    def self.write_thinking_chunk(text : String)
-      print text
-      STDOUT.flush
+      io << ANSI::Screen.scroll_region(top, top + lines - 1)
+      io << ANSI::Cursor.to(1, top)
+      io.flush
     end
 
     # Stop using the sub-scroll region, undo the scroll constraint, and
     # place the cursor at the top or after the bottom of the region
     # based on `top` parameter which defaults to `false` for bottom.
     def stop(top = false)
-      # Restore full-screen scrolling
-      print "\e[r"
-      # Move cursor to line just after the region
-      row = top ? top_row : top_row + lines
-      print "\e[#{row};1H"
-      STDOUT.flush
-      # Deactivate
+      io = term.output
+      io << ANSI::Screen.reset_scroll_region
+      io << ANSI::Cursor.to(1, top ? top_row : top_row + lines)
+      io.flush
       @top_row = -1
     end
   end

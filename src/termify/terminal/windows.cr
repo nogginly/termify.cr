@@ -51,6 +51,10 @@
       # Temporarily switch input to raw + VT mode, yield, then restore input mode.
       # Output mode is left as-is (already set up by setup_console).
       def with_raw_input(&)
+        # A memory or pipe input has no console mode to change; run the block as-is
+        device = input
+        return yield unless device.is_a?(IO::FileDescriptor) && device.tty?
+
         raw_in = ENABLE_VIRTUAL_TERMINAL_INPUT # no line buffering, no echo, VT responses pass through
         WinCon.SetConsoleMode(@stdin_handle, raw_in)
         WinCon.FlushConsoleInputBuffer(@stdin_handle)

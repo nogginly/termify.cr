@@ -1,5 +1,12 @@
 require "../spec_helper"
 
+# A terminal whose ends are in memory but which answers queries anyway.
+private class ScriptedTerminal < Termify::Terminal
+  def interactive? : Bool
+    true
+  end
+end
+
 Spectator.describe Termify::Terminal do
   describe ".color_supported?" do
     context "when NO_COLOR is set" do
@@ -31,6 +38,60 @@ Spectator.describe Termify::Terminal do
         with_env({"NO_COLOR" => nil, "TERM" => nil, "COLORTERM" => nil}) do
           expect(Termify.terminal.color_supported?).to be_true
         end
+      end
+    end
+  end
+
+  describe "#interactive?" do
+    it "is false when the ends are not a terminal" do
+      term = Termify::Terminal.new(IO::Memory.new, IO::Memory.new)
+      expect(term.interactive?).to be_false
+    end
+  end
+
+  describe "#cursor_row" do
+    context "when the ends are not a terminal" do
+      it "returns the default row without asking" do
+        written = IO::Memory.new
+        term = Termify::Terminal.new(IO::Memory.new("\e[12;1R"), written)
+
+        expect(term.cursor_row).to eq(Termify::Terminal::DEFAULT_CURSOR_ROW)
+        expect(written.to_s).to be_empty
+      end
+    end
+
+    context "when the terminal answers" do
+      it "writes the query and reports the row" do
+        written = IO::Memory.new
+        term = ScriptedTerminal.new(IO::Memory.new("\e[12;40R"), written)
+
+        expect(term.cursor_row).to eq(12)
+        expect(written.to_s).to eq("\e[6n")
+      end
+
+      it "reports a row of more than one digit" do
+        term = ScriptedTerminal.new(IO::Memory.new("\e[137;2R"), IO::Memory.new)
+        expect(term.cursor_row).to eq(137)
+      end
+    end
+
+    context "when the terminal answers badly" do
+      it "returns the default row for a reply with no row field" do
+        term = ScriptedTerminal.new(IO::Memory.new("\e[R"), IO::Memory.new)
+        expect(term.cursor_row).to eq(Termify::Terminal::DEFAULT_CURSOR_ROW)
+      end
+
+      it "returns the default row when the input ends first" do
+        term = ScriptedTerminal.new(IO::Memory.new(""), IO::Memory.new)
+        expect(term.cursor_row).to eq(Termify::Terminal::DEFAULT_CURSOR_ROW)
+      end
+
+      it "stops reading at the limit rather than consuming everything" do
+        input = IO::Memory.new("x" * 100 + "\e[12;1R")
+        term = ScriptedTerminal.new(input, IO::Memory.new)
+
+        expect(term.cursor_row).to eq(Termify::Terminal::DEFAULT_CURSOR_ROW)
+        expect(input.pos).to eq(32)
       end
     end
   end
